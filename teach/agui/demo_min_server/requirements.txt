@@ -1,0 +1,4 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+
+# `ag_ui` / `ag_ui_langgraph` 直接使用本仓库 vendored 源码，不通过 pip 安装。

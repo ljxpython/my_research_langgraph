@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AG-UI SQL Agent Demo</title>
+    <style>
+      :root {
+        --bg: #0b0c0f;
+        --panel: #141823;
+        --text: #e8edf7;
+        --muted: #a4b0c2;
+        --accent: #6ee7b7;
+        --danger: #fb7185;
+        --border: rgba(255, 255, 255, 0.10);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        background: radial-gradient(1200px 800px at 20% 0%, #1a1f2e, var(--bg));
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 28px auto;
+        padding: 0 16px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 18px;
+        letter-spacing: 0.3px;
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .card {
+        background: rgba(20, 24, 35, 0.85);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        backdrop-filter: blur(6px);
+      }
+      label {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 6px;
+      }
+      input, textarea {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
+        padding: 10px 10px;
+        outline: none;
+      }
+      textarea { min-height: 92px; resize: vertical; }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-top: 10px;
+      }
+      button {
+        appearance: none;
+        border: 1px solid rgba(110, 231, 183, 0.35);
+        background: rgba(110, 231, 183, 0.12);
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .status {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .status b { color: var(--accent); }
+      .status .bad { color: var(--danger); }
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        line-height: 1.35;
+      }
+      .out {
+        min-height: 240px;
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+      }
+      @media (max-width: 920px) {
+        .grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>AG-UI -> FastAPI -> LangGraph (SQL Agent) Minimal UI</h1>
+        <div class="hint mono">POST /agent (SSE) | GET /healthz</div>
+      </header>
+
+      <div class="grid">
+        <div class="card">
+          <label>Question</label>
+          <textarea id="question">Which genre on average has the longest tracks?</textarea>
+
+          <div class="row">
+            <div style="flex: 1">
+              <label>thread_id (optional)</label>
+              <input id="threadId" placeholder="t-sql-1" />
+            </div>
+            <div style="flex: 1">
+              <label>run_id (optional)</label>
+              <input id="runId" placeholder="r-sql-1" />
+            </div>
+          </div>
+
+          <div class="row">
+            <button id="runBtn">Run</button>
+            <button id="clearBtn" type="button">Clear</button>
+            <div class="status" id="status">Idle</div>
+          </div>
+
+          <div style="margin-top: 12px" class="hint">
+            这个页面不依赖任何前端框架：用 <span class="mono">fetch</span> 直接 POST，
+            读取返回的 <span class="mono">text/event-stream</span>，解析每个 <span class="mono">data: {...}\n\n</span>
+            为 AG-UI event。
+          </div>
+        </div>
+
+        <div class="card out">
+          <label>Assistant Output (TEXT_MESSAGE_CONTENT)</label>
+          <pre id="assistant"></pre>
+        </div>
+
+        <div class="card">
+          <label>Tool Calls / Steps</label>
+          <pre id="tools"></pre>
+        </div>
+
+        <div class="card">
+          <label>Raw Events (AG-UI JSON)</label>
+          <pre id="raw"></pre>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const statusEl = $("status");
+      const assistantEl = $("assistant");
+      const toolsEl = $("tools");
+      const rawEl = $("raw");
+      const runBtn = $("runBtn");
+
+      function setStatus(text, ok = true) {
+        statusEl.innerHTML = ok ? `<b>${text}</b>` : `<span class="bad">${text}</span>`;
+      }
+
+      function append(el, text) {
+        el.textContent += text;
+      }
+
+      function appendLine(el, text) {
+        el.textContent += text + "\n";
+      }
+
+      function clearAll() {
+        assistantEl.textContent = "";
+        toolsEl.textContent = "";
+        rawEl.textContent = "";
+        setStatus("Idle");
+      }
+
+      // SSE parser for responses formatted as: `data: {json}\n\n`
+      function parseSseChunks(buffer) {
+        const events = [];
+        while (true) {
+          const idx = buffer.indexOf("\n\n");
+          if (idx === -1) break;
+          const chunk = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          const lines = chunk.split("\n");
+          const dataLines = lines
+            .filter((l) => l.startsWith("data:"))
+            .map((l) => l.replace(/^data:\s?/, ""));
+          if (dataLines.length === 0) continue;
+          const dataStr = dataLines.join("\n");
+          events.push(dataStr);
+        }
+        return { events, rest: buffer };
+      }
+
+      function renderEvent(ev) {
+        // Raw
+        appendLine(rawEl, JSON.stringify(ev));
+
+        switch (ev.type) {
+          case "RUN_STARTED":
+            setStatus(`RUN_STARTED thread=${ev.threadId || "?"} run=${ev.runId || "?"}`);
+            break;
+          case "RUN_FINISHED":
+            setStatus("RUN_FINISHED");
+            break;
+          case "RUN_ERROR":
+            setStatus(`RUN_ERROR: ${ev.message || ""}`, false);
+            break;
+          case "TEXT_MESSAGE_START":
+            // new assistant message
+            appendLine(toolsEl, `TEXT_MESSAGE_START messageId=${ev.messageId}`);
+            break;
+          case "TEXT_MESSAGE_CONTENT":
+            append(assistantEl, ev.delta || "");
+            break;
+          case "TEXT_MESSAGE_END":
+            appendLine(assistantEl, "\n");
+            break;
+          case "TOOL_CALL_START":
+            appendLine(toolsEl, `TOOL_CALL_START id=${ev.toolCallId} name=${ev.toolCallName}`);
+            break;
+          case "TOOL_CALL_ARGS":
+            appendLine(toolsEl, `TOOL_CALL_ARGS id=${ev.toolCallId} delta=${ev.delta}`);
+            break;
+          case "TOOL_CALL_END":
+            appendLine(toolsEl, `TOOL_CALL_END id=${ev.toolCallId}`);
+            break;
+          case "TOOL_CALL_RESULT":
+            appendLine(toolsEl, `TOOL_CALL_RESULT id=${ev.toolCallId} content=${String(ev.content).slice(0, 200)}`);
+            break;
+          case "STEP_STARTED":
+            appendLine(toolsEl, `STEP_STARTED ${ev.stepName}`);
+            break;
+          case "STEP_FINISHED":
+            appendLine(toolsEl, `STEP_FINISHED ${ev.stepName}`);
+            break;
+          case "STATE_SNAPSHOT":
+            appendLine(toolsEl, `STATE_SNAPSHOT keys=${Object.keys(ev.snapshot || {}).join(",")}`);
+            break;
+          case "CUSTOM":
+            appendLine(toolsEl, `CUSTOM name=${ev.name}`);
+            break;
+          default:
+            // keep raw only
+            break;
+        }
+      }
+
+      async function run() {
+        runBtn.disabled = true;
+        setStatus("Connecting...");
+
+        const question = $("question").value.trim();
+        const threadId = $("threadId").value.trim();
+        const runId = $("runId").value.trim();
+
+        const payload = {
+          ...(threadId ? { thread_id: threadId } : {}),
+          ...(runId ? { run_id: runId } : {}),
+          messages: [
+            {
+              id: "m-user-1",
+              role: "user",
+              content: question,
+            },
+          ],
+        };
+
+        const res = await fetch("/agent", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok || !res.body) {
+          setStatus(`HTTP ${res.status}`, false);
+          runBtn.disabled = false;
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buf = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+
+          const parsed = parseSseChunks(buf);
+          buf = parsed.rest;
+
+          for (const dataStr of parsed.events) {
+            try {
+              const ev = JSON.parse(dataStr);
+              renderEvent(ev);
+            } catch (e) {
+              appendLine(rawEl, `<<parse error>> ${dataStr}`);
+            }
+          }
+        }
+
+        runBtn.disabled = false;
+      }
+
+      runBtn.addEventListener("click", () => {
+        run().catch((e) => {
+          setStatus(`Error: ${String(e)}`, false);
+          runBtn.disabled = false;
+        });
+      });
+
+      $("clearBtn").addEventListener("click", clearAll);
+    </script>
+  </body>
+</html>
