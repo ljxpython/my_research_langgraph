@@ -1,0 +1,20 @@
+{
+  "thread_id": "t-demo-1",
+  "messages": [
+    {
+      "id": "m-user-2",
+      "role": "user",
+      "content": "approve"
+    }
+  ],
+  "forwarded_props": {
+    "command": {
+      "resume": {
+        "interruptId": "i-demo-1",
+        "input": {
+          "approved": true
+        }
+      }
+    }
+  }
+}

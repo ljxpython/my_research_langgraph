@@ -1,0 +1,43 @@
+{
+  "threadId": "t-demo-1",
+  "busy": true,
+  "activeRunId": "r-active-1",
+  "updatedAt": 0,
+  "agentId": "agent-sql",
+  "graphId": "sql_agent",
+  "messages": [
+    {
+      "id": "m-user-1",
+      "role": "user",
+      "content": "Which genre on average has the longest tracks?"
+    },
+    {
+      "id": "m-asst-1",
+      "role": "assistant",
+      "content": "I will query the database...",
+      "toolCalls": [
+        {
+          "id": "call-1",
+          "type": "function",
+          "function": {
+            "name": "sql_db_query",
+            "arguments": "{\"query\":\"SELECT ...\"}"
+          }
+        }
+      ]
+    }
+  ],
+  "state": {
+    "ui": {
+      "panel": {
+        "activeTab": "tools"
+      }
+    },
+    "app": {
+      "progress": {
+        "stage": "running"
+      }
+    },
+    "debug": {}
+  }
+}

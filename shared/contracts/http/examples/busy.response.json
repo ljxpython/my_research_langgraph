@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "THREAD_BUSY",
+    "message": "This thread already has an active run.",
+    "requestId": "req-demo-1",
+    "details": {
+      "threadId": "t-demo-1",
+      "activeRunId": "r-active-1"
+    }
+  }
+}

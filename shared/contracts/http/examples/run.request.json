@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "id": "m-user-1",
+      "role": "user",
+      "content": "Hello"
+    }
+  ],
+  "thread_id": "t-demo-1",
+  "run_id": "r-demo-1",
+  "state": {
+    "ui": {
+      "selectedAgent": "agent-sql"
+    },
+    "app": {},
+    "debug": {}
+  },
+  "context": [],
+  "forwarded_props": {}
+}
