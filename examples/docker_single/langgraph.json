@@ -1,0 +1,20 @@
+{
+  "$schema": "https://langgra.ph/schema.json",
+  "dependencies": [
+    "langchain",
+    "langchain-openai",
+    "langchain-deepseek",
+    "langchain-mcp-adapters",
+    "deepagents",
+    "python-dotenv",
+    "."
+  ],
+  "graphs": {
+    "agent": "./app/agent.py:agent",
+    "agent_not_deep": "./app/agent.py:agent_not_deep"
+  },
+  "env": ".env",
+  "image_distro": "wolfi",
+  "python_version": "3.13",
+  "pip_installer": "uv"
+}
