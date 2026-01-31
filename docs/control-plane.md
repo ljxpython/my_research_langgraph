@@ -77,6 +77,59 @@ AntD Pro  -------------->  FastAPI Gateway  ---------------->  LangGraph Agent S
                              +--> Postgres (control metadata)
 ```
 
+---
+
+## 3.3 数据库与基础设施拓扑（Phase-1/生产级约定）
+
+你们已敲定：
+- 方案 A：一个 Postgres 实例 + 两个数据库（执行面/控制面隔离） + 一个 Redis
+- 开发：`langgraph dev` 走 in-memory
+- 平台联调/上线：Docker Compose（LangGraph Agent Server + Redis + Postgres + Control Plane）
+
+推荐拓扑：
+
+```
+                +---------------------+
+                |     Postgres        |
+                |  (single instance)  |
+                +----------+----------+
+                           |
+            +--------------+----------------+
+            |                               |
+   +--------v---------+            +--------v---------+
+   | langgraph_db     |            | control_plane_db |
+   | (execution plane)|            | (metadata/audit) |
+   +------------------+            +------------------+
+
+   +------------------+
+   | Redis             |
+   | (pub-sub broker)  |
+   +------------------+
+
+Control Plane  -> control_plane_db
+LangGraph API  -> langgraph_db + redis
+```
+
+为什么要分两个数据库：
+- Execution Plane 的 Postgres 由 LangGraph server 管理表结构与语义（assistants/threads/runs/state/queue）。
+- Control Plane 的 Postgres 由你们管理元数据与审计（users/tenants/agents/threads/runs/audit_events），避免双写 messages/state。
+
+环境变量命名建议（减少混淆）：
+- Control Plane（FastAPI）
+  - `CONTROL_PLANE_DATABASE_URI=postgresql://.../control_plane_db`
+  - `LANGGRAPH_API_URL=http://langgraph-api:8000`（docker 内网）
+  - `JWT_SECRET=...`
+  - `CORS_ALLOW_ORIGINS=...`
+
+- Execution Plane（LangGraph Agent Server）
+  - `DATABASE_URI=postgresql://.../langgraph_db`
+  - `REDIS_URI=redis://redis:6379/0`
+  - 其他模型/工具相关 key
+
+约定：
+- Control Plane **不复用** LangGraph 的 `DATABASE_URI`（避免误连误写）。
+- 两个 DB 使用不同数据库名（最清晰）；不要混到同一个 DB 里。
+
 ### 3.2 Phase-1 最佳实践
 
 - 控制面只支持 AG-UI（你们已定），把“前端任意”锁死在协议层。
@@ -97,7 +150,7 @@ AntD Pro  -------------->  FastAPI Gateway  ---------------->  LangGraph Agent S
 | rbac                      | 资源级授权（防 IDOR）：thread/run/agent 都必须 tenant 过滤 |
 | agent_registry            | agent_id -> (assistant_id, graph_id, execution_target_id) |
 | execution_adapter         | 封装 langgraph-sdk：threads/runs/state/history/cancel      |
-| concurrency_manager        | 同 thread 单 active run；busy->409；stale lock recovery   |
+| concurrency_manager       | 同 thread 单 active run；busy->409；stale lock recovery   |
 | api                       | 对外 API：run/snapshot/cancel/agents/threads              |
 | audit                     | append-only 审计事件：run start/cancel/snapshot read       |
 | config                    | 执行面地址、密钥引用、超时、限流参数                      |
@@ -107,30 +160,150 @@ AntD Pro  -------------->  FastAPI Gateway  ---------------->  LangGraph Agent S
 
 ---
 
+## 4.1 Control Plane 代码目录结构（建议，Phase-1）
+
+你们已确定：
+- `control_plane/` 使用 uv 管理依赖，Python 3.13
+- Python 包名使用 `gateway/`
+- 跨域 + Bearer token（Phase-1 简化 login，后续迁移 OIDC/SSO）
+
+建议目录结构（可直接落地）：
+
+```
+control_plane/
+  gateway/
+    main.py                  # FastAPI app：挂载 routers/middleware；生命周期
+    settings.py              # 配置：CORS、JWT、DB、LangGraph URL、超时等
+
+    middleware/
+      cors.py                # CORS allowlist（跨域 Bearer 必需）
+      request_id.py          # X-Request-Id 贯穿（日志/审计）
+      logging.py             # 结构化日志（Phase-1 可简化）
+
+    schemas/                 # Pydantic：请求/响应/错误码（对齐 shared/ 示例）
+      errors.py
+      auth.py                # /v1/auth/login, /v1/me
+      agents.py              # /v1/agents
+      threads.py             # /v1/threads, /snapshot
+      runs.py                # :run, :cancel
+
+    deps/                    # FastAPI Depends：AuthN/AuthZ 收口
+      auth.py                # get_current_user（Bearer）
+      permissions.py         # require_admin / require_thread_owner（Phase-1）
+
+    db/
+      engine.py              # SQLAlchemy engine/session
+      models.py              # tenants/users/agents/threads/runs/audit_events
+      migrations/            # Alembic
+
+    repos/                   # 数据存取（只做 CRUD + 锁位，不写业务规则）
+      agents_repo.py
+      threads_repo.py
+      runs_repo.py
+      audit_repo.py
+
+    adapters/                # 外部系统适配（LangGraph server SDK/HTTP）
+      langgraph_adapter.py
+
+    services/                # 平台语义（你们已敲定的策略都在这里）
+      auth_service.py        # Phase-1 简化 login（签发 JWT），Phase-2 替换为 OIDC 校验
+      agent_service.py       # agent registry
+      thread_service.py      # thread 创建/列表/归属校验（防 IDOR）
+      run_service.py         # 409 busy + streaming + 收尾清理
+      snapshot_service.py    # get_state -> 结构化 JSON（AG-UI messages + state）
+      cancel_service.py      # 幂等 cancel + best-effort + 清 busy
+      audit_service.py       # append-only 审计
+  tests/
+```
+
+分工理由（简洁版）：
+- `routers`（或直接在 main 挂载路由文件）：只做 HTTP 入口；避免巨型 controller。
+- `services`：平台语义核心（并发/断线/取消/快照/审计）。
+- `repos`：只做存取与行锁（例如 threads.active_run_id 锁位）。
+- `adapters`：隔离 LangGraph server 的 SDK/协议变化。
+- `schemas`：对齐 `shared/` 的 JSON 示例，减少前后端对接漂移。
+
+---
+
+## 4.2 Phase-1 权限策略（简单但像中台）
+
+Phase-1 建议只做：
+- AuthN：简化登录签发 JWT（`POST /v1/auth/login`），前端跨域使用 `Authorization: Bearer <token>`。
+- AuthZ：最小 RBAC（admin/user）+ tenant 资源隔离（防 IDOR）。
+
+强制约束：
+- 任何 thread/run 相关的 API 都必须校验：`thread_id` 属于当前 tenant/user。
+- agent 管理接口（CRUD）只允许 admin。
+
+后续 Phase-2 才引入：Role-Menu/Role-API 或 Casbin。
+
+---
+
 ## 5. 数据模型（Phase-1 最小表）
 
 目标：支持中台常见能力（登录/权限、agent 列表、thread/run 归属、busy/cancel、审计），并为 Phase-2 的 eval/dataset 预留扩展。
 
 注意：messages/state 不落库（执行面是单一真相源）。
 
+### 5.1 ID 策略（已敲定：ULID）
+
+你们已选择：使用 ULID 作为主键/资源 ID。
+
+推荐约定：
+- `tenant_id`、`user_id`、`thread_id`、`run_id`、`audit_event_id` 都使用 ULID���字符串）
+- `agent_id` 保持“可读的 slug”（例如 `agent-sql`），便于中台运营
+
+建议格式：
+- ULID 原始 26 字符（Crockford Base32），也可加资源前缀便于排障：
+  - `th_01J...`、`run_01J...`、`u_01J...`（前缀非必须，但强烈推荐）
+
+### 5.2 表结构（建议 v1，不存 messages/state 正文）
+
+下面是 Phase-1 推荐的最小表结构：
+
 ```
-+------------------+----------------------------+---------------------------------------+
-| 表               | 主键/关键字段               | 说明                                  |
-+------------------+----------------------------+---------------------------------------+
-| tenants          | id, name, status           | 可选：Phase-1 单租户也可以先简化       |
-| users            | id, tenant_id, subject     | subject = token sub / oidc sub        |
-| api_keys         | id, tenant_id, hashed_key  | 可选：Phase-1 可不做                   |
-| agents           | agent_id, graph_id, assistant_id, execution_target_id, config_json, status |
-| threads          | thread_id, tenant_id, agent_id, graph_id, assistant_id, execution_target_id, active_run_id, last_activity_at |
-| runs             | run_id, thread_id, tenant_id, status, created_at, ended_at, error_code |
-| audit_events     | id, tenant_id, actor_id, action, resource_id, created_at, details_json |
-+------------------+----------------------------+---------------------------------------+
++--------------+-----------------------------------------------+---------------------------------------------+
+| 表           | 关键字段                                        | 说明                                         |
++--------------+-----------------------------------------------+---------------------------------------------+
+| tenants      | id(ULID), name, status                         | 即使 Phase-1 单租户也建议保留，避免返工        |
+| users        | id(ULID), tenant_id, username, password_hash,  | Phase-1 简化 login；Phase-2 可迁移 OIDC       |
+|              | is_admin, status, created_at, last_login_at    |                                             |
+| agents       | agent_id(slug), tenant_id, graph_id/assistant_id, | agent registry：对前端暴露 agent_id       |
+|              | execution_target_id, config_json, status       | config_json 用于存 agent 配置                |
+| threads      | thread_id(ULID), tenant_id, created_by, agent_id, | 归属校验 + 并发锁位 active_run_id          |
+|              | active_run_id, last_activity_at, created_at    | 建议创建 thread 时固定 graph/assistant       |
+| runs         | run_id(ULID), tenant_id, thread_id, status,    | cancel 幂等；排障索引 request_id             |
+|              | request_id, started_at, ended_at, error_code   |                                             |
+| audit_events | id(ULID), tenant_id, actor_id, action,         | append-only：login/run/snapshot/cancel       |
+|              | resource_type, resource_id, request_id, details_json | request_id 做链路关联                    |
++--------------+-----------------------------------------------+---------------------------------------------+
 ```
 
-关键字段说明：
+### 5.3 必须的索引/约束（Phase-1 就要做）
+
+建议最小索引（能明显提升中台体验与排障效率）：
+
+- users
+  - `unique(tenant_id, username)`
+
+- threads
+  - `index(tenant_id, created_by, last_activity_at)`（线程列表/排障）
+  - `index(tenant_id, agent_id, last_activity_at)`
+  - `index(active_run_id)`（可选）
+
+- runs
+  - `index(tenant_id, thread_id, started_at)`
+  - `index(request_id)`（强烈建议，用于排障关联）
+
+- audit_events
+  - `index(tenant_id, created_at)`
+  - `index(request_id)`
+  - `index(resource_type, resource_id)`
+
+关键字段说明（与你们已敲定语义对齐）：
 - `threads.active_run_id`：并发约束的“锁位”。
 - `runs.status`：至少包含 `running|succeeded|failed|canceled|unknown`。
-- `agents.*`：让前端不硬编码 agentId/graphId/assistantId。
+- `audit_events`：中台“可追溯”的骨架，Phase-1 就要有。
 
 ---
 
@@ -151,12 +324,48 @@ AntD Pro  -------------->  FastAPI Gateway  ---------------->  LangGraph Agent S
 | GET  /v1/threads/{thread_id}/snapshot          | 断线恢复/刷新恢复            | 从 LangGraph 拉 state/messages |
 | POST /v1/agents/{agent_id}:run                | 发起 run（SSE）              | busy->409                |
 | POST /v1/threads/{thread_id}/runs/{run_id}:cancel | 取消 run                 | best-effort + 幂等        |
+| POST /v1/artifacts                              | 上传附件（可选）            | 前端通过 context 引用附件 |
 +-----------------------------------------------+------------------------------+--------------------------+
 ```
 
 关于 `POST /v1/threads`：
 - 推荐前端先创建 thread，拿到 thread_id 再 run。
 - 这样 thread 的 tenant/user/agent 绑定在控制面侧更清晰，且 thread_id 不再由客户端“随便填”。
+
+## 6.1 agent registry 与 execution_target（dev/prod 映射策略）
+
+你们的开发方式已确定：
+- 调试 graph：本地 `langgraph dev`（local-dev target）
+- 平台联调/上线：Docker 部署 LangGraph Agent Server（docker-dev/prod target）
+
+因此 Control Plane 必须引入 `execution_target` 概念，用于把请求路由到不同执行面。
+
+推荐策略：
+- 在 thread 创建时固化 `execution_target_id`
+- 后续该 thread 的 run/snapshot/cancel 都必须打到同一个 target（避免状态割裂）
+
+Agent Registry 建议拆分为两层（概念上；Phase-1 也可先用单表实现）：
+
+1) `agents`：平台对外入口（稳定）
+- `agent_id`（对前端）
+- display_name/status/config_json
+
+2) `agent_deployments`：按 target 的实际映射（可变化）
+- `agent_id` + `execution_target_id`
+- `assistant_id` / `graph_id`（允许 dev/prod 不同）
+- status
+
+Control Plane 的 resolve 逻辑：
+- `agent_id` + `execution_target_id` -> (assistant_id/graph_id/base_url)
+
+相关契约示例（JSON）：
+- `shared/contracts/http/examples/login.request.json`
+- `shared/contracts/http/examples/login.response.json`
+- `shared/contracts/http/examples/me.response.json`
+- `shared/contracts/http/examples/run.request.json`
+- `shared/contracts/http/examples/snapshot.response.json`
+- `shared/contracts/http/examples/cancel.response.json`
+- `shared/contracts/http/examples/busy.response.json`
 
 ---
 
@@ -238,6 +447,9 @@ stale lock recovery（防永久 busy）：
 - 不信任前端传入的 `tools`：后端忽略或严格白名单
 - snapshot 脱敏：state/messages 中可能包含敏感信息，至少要支持字段级过滤
 - 内部密钥不下发：执行面 API key 只在控制面持有（见 `docs/security-and-secrets.md`）
+
+错误码与结构见：
+- `shared/contracts/http/errors.md`
 
 ---
 

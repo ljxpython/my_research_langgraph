@@ -12,6 +12,10 @@
 - 前端请求携带 `Authorization: Bearer <platform_token>`
 - Gateway 在服务端决定 tenant/project，并做授权校验
 
+跨域（CORS）说明：
+- 前后端跨域时，Gateway 需要开启 CORS allowlist，并允许 `Authorization` 头。
+- 建议前端在每次请求带上 `X-Request-Id`（用于审计与排障）。
+
 备注：
 - 不建议让前端持有 LangGraph / LangSmith 的服务端密钥
 
@@ -25,6 +29,28 @@
 原则：对前端暴露的协议二选一，避免在同一条链路里同时引入两套协议。
 
 ## 2. 核心端点（建议最小集合）
+
+### 2.0 鉴权端点（Phase-1：简化 login，后续可迁移到 OIDC）
+
+说明：
+- Phase-1 你们选择“简化 login”，用于内部测试平台快速落地。
+- Phase-2 迁移到企业 OIDC/SSO 时，业务 API 调用方式保持不变（仍然是 Bearer token）。
+
+#### 2.0.1 登录
+
+- `POST /v1/auth/login`
+  - 请求体：JSON（用户名/密码）
+  - 响应：JSON（access_token）
+
+示例：见 `shared/contracts/http/examples/login.request.json` 与 `shared/contracts/http/examples/login.response.json`。
+
+#### 2.0.2 当前用户
+
+- `GET /v1/me`
+  - 请求头：`Authorization: Bearer <token>`
+  - 响应：JSON（user/tenant/scopes）
+
+示例：见 `shared/contracts/http/examples/me.response.json`。
 
 ### 2.1 健康检查
 
@@ -53,6 +79,9 @@
 - `messages`: 用户输入消息列表（role/content）
 - `thread_id`（可选）：不传则由 Gateway 创建，并在事件里回传
 - `run_id`（可选）：不传则由 Gateway 创建
+
+ID 约定（Phase-1，已敲定）：
+- `thread_id` / `run_id` 使用 ULID 字符串（建议带资源前缀，如 `th_01J...`、`run_01J...`）。
 
 强交互场景建议支持：
 - `state`：前端侧状态（例如 UI 表单、选择项），用于进入图状态
@@ -110,6 +139,9 @@ AG-UI 事件的重点类别：
   }
 }
 ```
+
+其他通用错误码与结构见：
+- `shared/contracts/http/errors.md`
 
 ### 2.3.2 Run cancelled
 
@@ -200,6 +232,63 @@ AG-UI 事件的重点类别：
 兼容性规则：
 - 响应字段只增不删；前端必须忽略未知字段
 - `messages/state` 的 schema 变更必须通过 `/v2/...` 版本升级完成
+
+### 2.5.2 messages 结构化转换规则（Phase-1 明确）
+
+目标：Control Plane 输出 `messages: AG-UI Message[]`，让前端不依赖 LangGraph/LangChain 内部 message 结构。
+
+最低保证（Phase-1 必须做到）：
+- `id`: string
+- `role`: `user` / `assistant` / `tool`（至少覆盖这三类）
+- `content`: string（Phase-1 优先保证文本可用）
+
+工具调用（tool calls）：
+- assistant message 可以包含 `toolCalls[]`
+- tool message 应包含 `toolCallId` 与 `content`（用于关联到对应工具调用）
+
+多段内���（例如 list of blocks / rich content）：
+- Phase-1 统一降级为字符串：
+  - 优先拼接文本块
+  - 非文本块（例如 image block）不进 `messages.content`，改用附件（artifacts）机制
+
+图片/文件：
+- Phase-1 不把二进制放进 `messages`（不 base64）。
+- 使用 artifacts + `RunAgentInput.context` 引用附件（见 2.6）。
+- snapshot 中如需展示附件，应返回 metadata（artifactId/name/mimeType/previewUrl），不返回二进制。
+
+示例：
+- 纯文本 snapshot：`shared/contracts/http/examples/snapshot.response.json`
+- 带附件 snapshot：`shared/contracts/http/examples/snapshot.response.with_artifact.json`
+
+## 2.6 Artifacts（附件/文件）上传与引用（Phase-1 规范）
+
+目标：支持前端传入图片/文件，但不把二进制塞进 `messages`。
+
+核心原则：
+- `messages` 只承载文本/结构化信息，不承载二进制
+- 附件通过 artifact 引用传递（artifactId + metadata + 可控下载地址）
+
+### 2.6.1 上传附件
+
+- `POST /v1/artifacts`
+  - 请求：`multipart/form-data`
+  - 响应：JSON（artifact 元数据 + downloadUrl/previewUrl）
+
+示例：见 `shared/contracts/http/examples/artifact.upload.response.json`。
+
+### 2.6.2 在 run 中引用附件（已敲定：放在 context）
+
+约定：
+- 前端在 `RunAgentInput.context` 里追加一条 `artifact` 记录
+- `messages.content` 里用自然语言说明“请分析附件/图片”即可
+
+示例：见 `shared/contracts/http/examples/run.request.with_artifact.json`。
+
+### 2.6.3 安全注意（必须写死）
+
+- 禁止前端传任意外部 URL 让执行面去下载（SSRF 风险）。
+- downloadUrl/previewUrl 应来自你们受控的存储域名（或签名 URL）。
+- snapshot 返回附件时，返回 metadata 与 URL，不返回 base64。
 
 ## 4. 平台自定义事件（推荐预留）
 

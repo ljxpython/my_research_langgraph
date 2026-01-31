@@ -2,6 +2,9 @@
 
 目标：一条链路跑通（LangGraph 执行面 + Platform Gateway + 前端）。
 
+另见：
+- `docs/developer-experience.md`
+
 ## 1. Execution Plane：启动 LangGraph dev
 
 在你们的 demo 结构里，graph 定义在：

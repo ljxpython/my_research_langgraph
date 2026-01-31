@@ -10,23 +10,38 @@
 ## 文档导航
 
 - `docs/architecture.md`：总体架构与模块边界（建议评审入口）
+- `docs/repo-layout.md`：代码仓库目录规划（前后端分离 + Execution/Control Plane）
 - `docs/control-plane.md`：Control Plane 设计（通用测试平台：模块/数据模型/API/流程/演进）
+- `docs/execution-plane.md`：Execution Plane 设计（LangGraph 编排与部署：langgraph.json、dev vs docker）
 - `docs/api-contract.md`：Platform Gateway 对前端的 API 与事件流契约（AG-UI + SSE）
 - `docs/frontend-contract.md`：前端对接契约 v1（必选事件集 + 可选强交互事件 + HITL + CUSTOM 规范）
 - `docs/dev-workflow.md`：本地开发/联调工作流（LangGraph dev + FastAPI + UI）
+- `docs/developer-experience.md`：Developer Experience / 双入口调试（agent-chat-ui 直连执行面 + 平台前端走 Control Plane）
+- `docs/dev-commands.md`：启动脚本/命令约定（Graph 开发 vs 平台联调）
+- `docs/frontend-plan.md`：前端 Phase-1 规划（页面/目录/AG-UI store）
+- `docs/integration-guardrails.md`：前后端对接保障（shared 的作用与不足、契约测试/Mock/CI 约束）
 - `docs/security-and-secrets.md`：鉴权、密钥、审计与多租户隔离约定
+- `docs/infra.md`：Infra（本地/测试环境：docker run 部署 Redis + Postgres 双 DB）
+- `docs/reuse-auth-db.md`：鉴权与 DB 管理可复用方案（Phase-1 简化 login -> Phase-2 OIDC）
 
 ## 契约资产（跨前后端共享）
 
 `shared/` 用于存放“可复制的 JSON 示例 + 错误码表 + CUSTOM 事件注册表”，减少对接漂移：
 
 - `shared/contracts/http/examples/run.request.json`
+- `shared/contracts/http/examples/login.request.json`
+- `shared/contracts/http/examples/login.response.json`
+- `shared/contracts/http/examples/me.response.json`
 - `shared/contracts/http/examples/busy.response.json`
 - `shared/contracts/http/examples/snapshot.response.json`
 - `shared/contracts/http/examples/cancel.response.json`
 - `shared/contracts/http/examples/resume.request.json`
+- `shared/contracts/http/examples/artifact.upload.response.json`
+- `shared/contracts/http/examples/run.request.with_artifact.json`
+- `shared/contracts/http/examples/snapshot.response.with_artifact.json`
 - `shared/contracts/http/errors.md`
 - `shared/contracts/agui/custom-events.md`
+- `shared/contracts/frontend/mapping.md`
 
 ## 重要结论（先读这个）
 
