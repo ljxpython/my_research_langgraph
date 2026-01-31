@@ -20,6 +20,8 @@
 
 ## 1) HTTP 接口 -> 前端行为
 
+说明：本地开发默认账号密码为 `test`/`test`（可用 env 覆盖）。
+
 ID 约定（Phase-1）：
 - `threadId`/`runId` 推荐使用 ULID 字符串（建议带资源前缀：`th_01J...`、`run_01J...`）。
 
