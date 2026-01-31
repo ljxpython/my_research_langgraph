@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Workbench Layout B - Chat First</title>
+    <style>
+      :root {
+        --bg: #0a0b0f;
+        --panel: rgba(255, 255, 255, 0.06);
+        --border: rgba(255, 255, 255, 0.12);
+        --text: #e7eefc;
+        --muted: rgba(231, 238, 252, 0.65);
+        --accent: #a78bfa;
+        --ok: #86efac;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        background: radial-gradient(1200px 800px at 70% 0%, #2a1f3d, var(--bg));
+        color: var(--text);
+      }
+      .wrap { max-width: 980px; margin: 18px auto; padding: 0 14px; }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+      h1 { margin: 0; font-size: 16px; letter-spacing: 0.2px; }
+      .hint { color: var(--muted); font-size: 12px; }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+      }
+      .topbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .pill {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 12px;
+        border: 1px solid var(--border);
+        padding: 6px 10px;
+        border-radius: 999px;
+      }
+      .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--ok); }
+      .dot.accent { background: var(--accent); }
+      .chat {
+        display: flex;
+        flex-direction: column;
+        height: 520px;
+      }
+      .title { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+      .chat-log {
+        flex: 1;
+        overflow: auto;
+        border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 10px;
+        padding: 10px;
+      }
+      .msg { margin-bottom: 10px; }
+      .msg .who { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+      .msg .bubble {
+        display: inline-block;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.10);
+      }
+      .composer {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      input {
+        flex: 1;
+        border: 1px solid rgba(255,255,255,0.14);
+        background: rgba(255,255,255,0.04);
+        color: var(--text);
+        border-radius: 10px;
+        padding: 10px;
+        outline: none;
+      }
+      button {
+        border: 1px solid rgba(167, 139, 250, 0.35);
+        background: rgba(167, 139, 250, 0.14);
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .bottom {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        line-height: 1.35;
+        color: rgba(231,238,252,0.78);
+      }
+      @media (max-width: 860px) {
+        .chat { height: auto; }
+        .bottom { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>Workbench Layout B: Chat First（工具/状态放到底部）</h1>
+        <div class="hint">更轻量，更像对话产品，但排障信息不如三栏直观</div>
+      </header>
+
+      <div class="card">
+        <div class="topbar">
+          <div class="pill"><span class="dot accent"></span>Agent: agent-sql</div>
+          <div class="pill"><span class="dot"></span>Thread: t-demo-1</div>
+          <div class="pill"><span class="dot"></span>Status: busy (r-active-1)</div>
+          <div class="pill">Action: Cancel</div>
+        </div>
+
+        <div class="chat">
+          <div class="title">Chat（核心视图）</div>
+          <div class="chat-log">
+            <div class="msg">
+              <div class="who">user</div>
+              <div class="bubble">Give me top 5 artists by number of tracks.</div>
+            </div>
+            <div class="msg">
+              <div class="who">assistant</div>
+              <div class="bubble">Sure. I will query the database...</div>
+            </div>
+          </div>
+          <div class="composer">
+            <input value="Ask a question..." />
+            <button>Run</button>
+          </div>
+          <div class="hint" style="margin-top: 8px;">
+            适合“对话为主”的操作流；工具轨迹与状态更像日志区。
+          </div>
+        </div>
+
+        <div class="bottom">
+          <div class="card" style="margin:0;">
+            <div class="title">Tools / Steps</div>
+            <pre>TOOL_CALL_START sql_db_list_tables
+TOOL_CALL_END
+TOOL_CALL_START sql_db_query
+TOOL_CALL_ARGS {"query":"SELECT ..."}
+TOOL_CALL_RESULT ...</pre>
+          </div>
+          <div class="card" style="margin:0;">
+            <div class="title">State (ui/app/debug)</div>
+            <pre>{
+  "ui": {"panel": {"activeTab": "chat"}},
+  "app": {"progress": {"stage": "running"}},
+  "debug": {}
+}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Workbench Layout A - Three Column</title>
+    <style>
+      :root {
+        --bg: #0b0c10;
+        --panel: rgba(255, 255, 255, 0.06);
+        --border: rgba(255, 255, 255, 0.12);
+        --text: #e7eefc;
+        --muted: rgba(231, 238, 252, 0.65);
+        --accent: #7dd3fc;
+        --ok: #86efac;
+        --warn: #fbbf24;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        background: radial-gradient(1200px 800px at 20% 0%, #1c2440, var(--bg));
+        color: var(--text);
+      }
+      .wrap { max-width: 1280px; margin: 18px auto; padding: 0 14px; }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+      h1 { margin: 0; font-size: 16px; letter-spacing: 0.2px; }
+      .hint { color: var(--muted); font-size: 12px; }
+      .grid {
+        display: grid;
+        grid-template-columns: 280px 1fr 360px;
+        gap: 10px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        min-height: 160px;
+      }
+      .title { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+      .pill {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 12px;
+        border: 1px solid var(--border);
+        padding: 6px 10px;
+        border-radius: 999px;
+        margin-right: 8px;
+      }
+      .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--ok); }
+      .dot.warn { background: var(--warn); }
+      .dot.accent { background: var(--accent); }
+      .section { margin-top: 10px; }
+      .list {
+        border-top: 1px dashed rgba(255,255,255,0.14);
+        padding-top: 10px;
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .chat {
+        display: flex;
+        flex-direction: column;
+        height: 520px;
+      }
+      .chat-log {
+        flex: 1;
+        overflow: auto;
+        border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 10px;
+        padding: 10px;
+      }
+      .msg { margin-bottom: 10px; }
+      .msg .who { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+      .msg .bubble {
+        display: inline-block;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.10);
+      }
+      .composer {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      input {
+        flex: 1;
+        border: 1px solid rgba(255,255,255,0.14);
+        background: rgba(255,255,255,0.04);
+        color: var(--text);
+        border-radius: 10px;
+        padding: 10px;
+        outline: none;
+      }
+      button {
+        border: 1px solid rgba(125, 211, 252, 0.35);
+        background: rgba(125, 211, 252, 0.14);
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .right-tabs {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        height: 520px;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .tab {
+        font-size: 12px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.14);
+        color: var(--muted);
+      }
+      .tab.active {
+        color: var(--text);
+        border-color: rgba(125, 211, 252, 0.40);
+        background: rgba(125, 211, 252, 0.10);
+      }
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        line-height: 1.35;
+        color: rgba(231,238,252,0.78);
+      }
+      @media (max-width: 1100px) {
+        .grid { grid-template-columns: 1fr; }
+        .chat, .right-tabs { height: auto; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>Workbench Layout A: 左侧资源 + 中间对话 + 右侧工具/状态</h1>
+        <div class="hint">适合中台工作台：多资源、多面板、排障友好</div>
+      </header>
+
+      <div class="grid">
+        <div class="card">
+          <div class="title">左侧：Agent / Thread</div>
+          <div class="pill"><span class="dot accent"></span>Agent: agent-sql</div>
+          <div class="pill"><span class="dot"></span>Auth: OK</div>
+
+          <div class="section">
+            <div class="title">Threads</div>
+            <div class="list">
+              - t-demo-1 (busy: r-active-1)
+              <br />- t-demo-2
+              <br />- t-demo-3
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="title">Actions</div>
+            <div class="list">
+              - Create Thread
+              <br />- Load Snapshot
+              <br />- Cancel Active Run
+            </div>
+          </div>
+        </div>
+
+        <div class="card chat">
+          <div class="title">中间：Chat（AG-UI TEXT_MESSAGE）</div>
+          <div class="chat-log">
+            <div class="msg">
+              <div class="who">user</div>
+              <div class="bubble">Which genre on average has the longest tracks?</div>
+            </div>
+            <div class="msg">
+              <div class="who">assistant</div>
+              <div class="bubble">I will query the database...</div>
+            </div>
+          </div>
+          <div class="composer">
+            <input value="Ask a question..." />
+            <button>Run</button>
+          </div>
+          <div class="hint" style="margin-top: 8px;">
+            Busy/409 时：中间区域可提示“thread 正在运行”，并引导去右侧/左侧点击 Cancel。
+          </div>
+        </div>
+
+        <div class="card right-tabs">
+          <div>
+            <div class="title">右侧：工具/状态/事件</div>
+            <div class="tabs">
+              <div class="tab active">Tools</div>
+              <div class="tab">State</div>
+              <div class="tab">Events</div>
+            </div>
+          </div>
+          <div class="chat-log" style="height: 100%;">
+            <pre>TOOL_CALL_START  sql_db_query
+TOOL_CALL_ARGS   {"query":"SELECT ..."}
+TOOL_CALL_END
+TOOL_CALL_RESULT ...
+
+STATE_SNAPSHOT keys=ui,app,debug
+CUSTOM interrupt (if any)
+</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
