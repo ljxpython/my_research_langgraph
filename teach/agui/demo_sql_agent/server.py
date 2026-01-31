@@ -31,9 +31,9 @@ VENDORED_AGUI_LANGGRAPH_PY = (
 sys.path.insert(0, str(VENDORED_AGUI_PY))
 sys.path.insert(0, str(VENDORED_AGUI_LANGGRAPH_PY))
 
-from ag_ui.core.types import RunAgentInput  # noqa: E402
-from ag_ui.encoder import EventEncoder  # noqa: E402
-from ag_ui_langgraph import LangGraphAgent  # noqa: E402
+from ag_ui.core.types import RunAgentInput  # type: ignore  # noqa: E402
+from ag_ui.encoder import EventEncoder  # type: ignore  # noqa: E402
+from ag_ui_langgraph import LangGraphAgent  # type: ignore  # noqa: E402
 
 from sql_agent_graph import build_sql_agent_graph  # noqa: E402
 
@@ -129,7 +129,8 @@ async def agent_root(request: Request):
 
 
 def main():
-    port = int(os.getenv("PORT", "8000"))
+    # Avoid conflicting with Control Plane default port (8000).
+    port = int(os.getenv("PORT", "9100"))
     # For reload during development, prefer:
     #   uvicorn teach/agui/demo_sql_agent/server.py:app --reload
     # (or run from this directory with a module path that exists)
