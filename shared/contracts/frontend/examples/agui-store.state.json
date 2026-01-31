@@ -1,0 +1,24 @@
+{
+  "threadId": "t-demo-1",
+  "busy": true,
+  "activeRunId": "r-active-1",
+  "messages": [
+    {"id": "m-user-1", "role": "user", "content": "Hello"},
+    {"id": "m-asst-1", "role": "assistant", "content": "Hi!"}
+  ],
+  "toolCalls": [
+    {
+      "toolCallId": "call-1",
+      "toolName": "sql_db_query",
+      "status": "running",
+      "args": "{\"query\":\"SELECT ...\"}",
+      "result": null
+    }
+  ],
+  "state": {
+    "ui": {"panel": {"activeTab": "tools"}},
+    "app": {"progress": {"stage": "running"}},
+    "debug": {}
+  },
+  "interrupt": null
+}
