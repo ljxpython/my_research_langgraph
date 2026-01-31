@@ -1,0 +1,27 @@
+{
+  "messages": [
+    {
+      "id": "m-user-1",
+      "role": "user",
+      "content": "请分析这张图片里的内容，并总结重点。"
+    }
+  ],
+  "thread_id": "th_01JDEMO000000000000000000",
+  "run_id": "run_01JDEMO000000000000000000",
+  "context": [
+    {
+      "type": "artifact",
+      "artifactId": "art_01JDEMO000000000000000000",
+      "name": "image.png",
+      "mimeType": "image/png",
+      "downloadUrl": "https://files.example.com/artifacts/art_01JDEMO000000000000000000",
+      "previewUrl": "https://files.example.com/artifacts/art_01JDEMO000000000000000000/preview"
+    }
+  ],
+  "state": {
+    "ui": {},
+    "app": {},
+    "debug": {}
+  },
+  "forwarded_props": {}
+}

@@ -1,0 +1,35 @@
+{
+  "threadId": "th_01JDEMO000000000000000000",
+  "busy": false,
+  "activeRunId": null,
+  "updatedAt": 0,
+  "agentId": "agent-vision",
+  "graphId": "vision_agent",
+  "messages": [
+    {
+      "id": "m-user-1",
+      "role": "user",
+      "content": "请分析我上传的图片。"
+    },
+    {
+      "id": "m-asst-1",
+      "role": "assistant",
+      "content": "我会先查看附件元数据，然后进行分析。"
+    }
+  ],
+  "state": {
+    "ui": {
+      "attachments": [
+        {
+          "type": "artifact",
+          "artifactId": "art_01JDEMO000000000000000000",
+          "name": "image.png",
+          "mimeType": "image/png",
+          "previewUrl": "https://files.example.com/artifacts/art_01JDEMO000000000000000000/preview"
+        }
+      ]
+    },
+    "app": {},
+    "debug": {}
+  }
+}

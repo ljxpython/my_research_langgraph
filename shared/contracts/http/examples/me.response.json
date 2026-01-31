@@ -1,0 +1,8 @@
+{
+  "userId": "u-123",
+  "tenantId": "t-001",
+  "username": "admin",
+  "roles": ["admin"],
+  "scopes": ["*"],
+  "issuedAt": 0
+}

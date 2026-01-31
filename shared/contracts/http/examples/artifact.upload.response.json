@@ -1,0 +1,9 @@
+{
+  "artifactId": "art_01JDEMO000000000000000000",
+  "name": "image.png",
+  "mimeType": "image/png",
+  "size": 123456,
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "downloadUrl": "https://files.example.com/artifacts/art_01JDEMO000000000000000000",
+  "previewUrl": "https://files.example.com/artifacts/art_01JDEMO000000000000000000/preview"
+}
