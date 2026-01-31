@@ -1,0 +1,24 @@
+[project]
+name = "control-plane"
+version = "0.1.0"
+description = "Control Plane (FastAPI Gateway) for AI testing platform"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "fastapi>=0.128.0",
+  "uvicorn[standard]>=0.40.0",
+  "sqlalchemy>=2.0.0",
+  # SQLAlchemy Postgres driver (Python 3.13-friendly)
+  "psycopg[binary]>=3.2.0",
+  "alembic>=1.13.0",
+  "httpx>=0.27.0",
+  "PyJWT>=2.9.0",
+  "ulid-py>=1.1.0",
+  "pydantic>=2.7.0",
+  "pydantic-settings>=2.3.0",
+  "langgraph-sdk>=0.1.0",
+  "python-multipart>=0.0.9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
