@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "threadId": "t-demo-1",
-  "runId": "r-active-1",
+  "threadId": "th_01JDEMO000000000000000000",
+  "runId": "run_01JACTIVE000000000000000",
   "status": "cancel_requested"
 }

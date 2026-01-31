@@ -1,7 +1,7 @@
 {
-  "threadId": "t-demo-1",
+  "threadId": "th_01JDEMO000000000000000000",
   "busy": true,
-  "activeRunId": "r-active-1",
+  "activeRunId": "run_01JACTIVE000000000000000",
   "updatedAt": 0,
   "agentId": "agent-sql",
   "graphId": "sql_agent",

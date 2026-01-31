@@ -6,8 +6,8 @@
       "content": "Hello"
     }
   ],
-  "thread_id": "t-demo-1",
-  "run_id": "r-demo-1",
+  "thread_id": "th_01JDEMO000000000000000000",
+  "run_id": "run_01JDEMO000000000000000000",
   "state": {
     "ui": {
       "selectedAgent": "agent-sql"
