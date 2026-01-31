@@ -5,6 +5,9 @@
 .sisyphus/
 .langgraph_api/
 
+# Local dev run artifacts
+.run/
+
 # ==================== Python ====================
 __pycache__/
 *.py[cod]

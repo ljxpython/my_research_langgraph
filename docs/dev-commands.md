@@ -42,6 +42,7 @@
 - `dev.cp`：启动 Control Plane（FastAPI Gateway）
 - `dev.frontend`：启动平台前端（AntD Pro）
 - `dev.platform`：启动 exec + cp + frontend（平台联调）
+- `dev.db`：启动本地依赖（Postgres + Redis）并创建数据库
 
 说明：
 - `dev.platform` 是“最常用的一键联调”，不强制包含 debug-ui。
@@ -62,11 +63,13 @@
 
 - uv 管理依赖，Python 3.13
 - 推荐启动方式：`uv run uvicorn gateway.main:app --reload --port 8000`
+ - 推荐启动方式：`make dev.cp`（会先执行 `alembic upgrade head`）
 
 ### Frontend
 
 - pnpm 管理依赖
 - 推荐启动方式：`pnpm dev`（端口由前端工程决定）
+ - 推荐启动方式：`make dev.frontend`（首次需要 `make fe.install`）
 
 ---
 
@@ -77,3 +80,24 @@
 - 允许 `Authorization` 头
 - 前端统一注入 `Authorization: Bearer <token>`
 - 建议前端每次请求带 `X-Request-Id`，用于审计与排障
+
+---
+
+## 5) Makefile（推荐的落地方式）
+
+仓库根目录已提供 `Makefile`，目标是“能一键拉起平台联调”，同时保留单组件启动的灵活性：
+
+- `make dev.platform`：默认用 tmux 拉起 exec + cp + frontend（没有 tmux 则 fallback 到后台 pidfile 模式）
+- `make dev.cp`：只启动 Control Plane
+- `make dev.frontend`：只启动 Frontend
+- `make dev.exec`：只启动 LangGraph dev
+
+uv 虚拟环境策略（最佳实践，结合你们的诉求）：
+
+- 默认（本仓库已落地）：**uv workspace + 根目录单一 `.venv` + 单一 `uv.lock`**
+  - 好处：一处锁文件/一处环境，启动脚本（Makefile）可以稳定工作
+  - 代价：依赖集合更大；需要克制“随手升级某个子项目依赖”带来的连锁冲突
+
+- 需要强隔离时（可选）：对子项目使用独立 venv
+  - `cd control_plane && uv sync`
+  - `cd control_plane && uv run uvicorn ...`
