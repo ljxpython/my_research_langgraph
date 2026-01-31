@@ -1,0 +1,72 @@
+name: contract-guard
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce mapping update when contract changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Determine diff range.
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+
+          # On the first push of a new branch, github.event.before can be all zeros.
+          if [[ -z "${BASE_SHA}" || "${BASE_SHA}" =~ ^0+$ ]]; then
+            echo "Skipping guard: BASE_SHA is empty/zero (new branch or missing history)."
+            exit 0
+          fi
+
+          changed_files="$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}")"
+          echo "Changed files:"
+          echo "${changed_files}"
+
+          if [[ -z "${changed_files}" ]]; then
+            echo "No changes detected."
+            exit 0
+          fi
+
+          trigger=0
+          mapping_touched=0
+
+          while IFS= read -r f; do
+            [[ -z "${f}" ]] && continue
+
+            if [[ "${f}" == "shared/contracts/frontend/mapping.md" ]]; then
+              mapping_touched=1
+            fi
+
+            case "${f}" in
+              docs/api-contract.md|docs/frontend-contract.md|shared/contracts/http/errors.md|shared/contracts/agui/custom-events.md)
+                trigger=1
+                ;;
+              shared/contracts/http/examples/*)
+                trigger=1
+                ;;
+            esac
+          done <<< "${changed_files}"
+
+          if [[ "${trigger}" -eq 1 && "${mapping_touched}" -ne 1 ]]; then
+            echo "::error::Contract files changed but mapping was not updated."
+            echo "If you changed API/contract/examples, also update: shared/contracts/frontend/mapping.md"
+            exit 1
+          fi
+
+          echo "Contract guard passed."
