@@ -356,3 +356,19 @@ docs/_book
 test/
 
 # End of https://www.toptal.com/developers/gitignore/api/python,pycharm,react,vue
+
+# ==================== Repo local artifacts (do not commit) ====================
+
+# Local platform runtime data (artifact storage)
+control_plane/.data/
+
+# Research scratch / vendored references (explicitly not part of the product)
+tmp/
+
+# Reference UI codebases (kept locally for research; not part of mainline)
+examples/ant-design-pro/
+examples/pro-components/
+examples/vue-fastapi-admin/
+
+# Demo SQLite DB files (generated / high-churn)
+examples/docker_single/**/Chinook.db
