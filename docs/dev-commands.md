@@ -8,6 +8,12 @@
 
 本文档给出推荐的命令约定（不强制“一条命令拉起四件套”）。
 
+可选：如果你需要运行/查看 `examples/ag-ui`（AG-UI 协议参考实现），请初始化 submodule：
+
+```bash
+git submodule update --init --recursive
+```
+
 ---
 
 ## 1) 两种开发模式（推荐）

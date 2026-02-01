@@ -24,6 +24,12 @@
 - Node.js + npm（前端）
 - Docker（本地 Postgres + Redis；如果你有自己的 DB，也可以不用 Docker）
 
+可选：如果你需要运行/查看 `examples/ag-ui`（AG-UI 协议参考实现），请初始化 submodule：
+
+```bash
+git submodule update --init --recursive
+```
+
 ### 一键联调（推荐给新同学）
 
 ```bash

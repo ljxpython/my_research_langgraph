@@ -1,0 +1,7 @@
+[submodule "examples/ag-ui"]
+  path = examples/ag-ui
+  url = https://github.com/ag-ui-protocol/ag-ui.git
+
+[submodule "examples/agent-chat-ui"]
+  path = examples/agent-chat-ui
+  url = https://github.com/langchain-ai/agent-chat-ui.git
