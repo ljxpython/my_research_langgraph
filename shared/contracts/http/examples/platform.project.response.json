@@ -1,0 +1,10 @@
+{
+  "project_id": "proj_01JDEMO...",
+  "tenant_id": "t_01JDEMO...",
+  "name": "Demo Project",
+  "description": "用于验证平台跑批链路（Dummy Runner）",
+  "status": "active",
+  "created_by": "u_01JDEMO...",
+  "created_at": 1738339200000,
+  "updated_at": 1738339200000
+}

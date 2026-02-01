@@ -35,6 +35,25 @@ ID 约定（Phase-1）：
 | `POST /v1/threads/{thread_id}/runs/{run_id}:cancel` | ok/status | `agui.busy = false`（最终以 snapshot/后续事件为准） | 显示“已请求取消”；必要时自动 reload snapshot |
 | `POST /v1/artifacts` | artifactId + urls | `ui.attachments[]` 追加（前端本地） | Workbench 显示附件列表/预览；run 时放入 context |
 
+### 1.1 平台测试模块（Platform Runs，polling）
+
+说明：这组接口对应 `docs/platform/*`，用于项目域跑批（Dummy Runner），不走 SSE。
+
+| 后端接口 | 返回/错误 | 前端 store 更新 | UI 行为/提示 |
+|---|---|---|---|
+| `GET /v1/projects` | projects[] | `platform.projects = resp` | Projects 列表页渲染 |
+| `POST /v1/projects` | project | 追加/刷新 projects | 创建成功跳转 Project Detail |
+| `GET /v1/projects/{project_id}/environments` | envs[] | `platform.envs[projectId]=resp` | Environments 列表 |
+| `POST /v1/projects/{project_id}/environments` | env | 追加/刷新 envs | 创建环境成功提示 |
+| `GET /v1/projects/{project_id}/runs` | runs[] | `platform.runs[projectId]=resp` | Runs 列表 |
+| `POST /v1/projects/{project_id}/runs` | run | 追加/刷新 runs | 创建 run 后跳转 Run Detail |
+| `GET /v1/runs/{run_id}` | run | `platform.runDetail = resp` | 用于渲染 run 状态/摘要 |
+| `GET /v1/runs/{run_id}/events` | events page | 追加 events（cursor 续读） | running 时 2s 轮询；429 遵守 Retry-After + 退避 |
+| `POST /v1/runs/{run_id}:cancel` | ok/status | 标记 cancel_requested | 提示“已请求取消”；后续以 events/run detail 为准 |
+| `POST /v1/projects/{project_id}/artifacts` | artifact | `platform.artifacts[runId]` 追加 | Run Detail 中展示 artifact 列表 |
+| `GET /v1/runs/{run_id}/artifacts` | artifacts[] | 替换 artifacts 列表 | 用于刷新与断线恢复 |
+| `GET /v1/audit` | audit[] | `platform.audit = resp` | Audit 页渲染 |
+
 错误处理（统一）：
 
 | HTTP 状态码 | error.code | 前端行为 |
@@ -43,6 +62,8 @@ ID 约定（Phase-1）：
 | 403 | `FORBIDDEN` | Toast 提示“无权限”；可记录 requestId |
 | 404 | `NOT_FOUND` | Toast 提示“资源不存在或不可见” |
 | 409 | `THREAD_BUSY` | 将 busy=true；展示 activeRunId；提供 Cancel |
+| 409 | `ENVIRONMENT_BUSY` | 提示“环境正忙”；展示 activeRunId（若有） |
+| 409 | `IDEMPOTENCY_KEY_CONFLICT` | 提示“重复的 client_run_id”；引导用户刷新到 existingRunId |
 
 ---
 

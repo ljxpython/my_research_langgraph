@@ -1,0 +1,16 @@
+{
+  "run_id": "prun_01JDEMO...",
+  "tenant_id": "t_01JDEMO...",
+  "project_id": "proj_01JDEMO...",
+  "environment_id": "env_01JDEMO...",
+  "status": "queued",
+  "runner": "dummy",
+  "client_run_id": "crun_01JDEMO...",
+  "params": {},
+  "created_at": 1738339200000,
+  "started_at": null,
+  "finished_at": null,
+  "summary_json": {
+    "summary_version": 1
+  }
+}

@@ -46,6 +46,23 @@ Dev defaults: username=test, password=test.
         )
         db.add(user)
 
+    # Create a stable system actor for background jobs (audit sweeps/purge summaries).
+    system_user_id = os.getenv("BOOTSTRAP_SYSTEM_USER_ID", "u_system")
+    system_username = os.getenv("BOOTSTRAP_SYSTEM_USERNAME", "system")
+    system_user = db.execute(
+        select(User).where(User.tenant_id == tenant.id, User.id == system_user_id)
+    ).scalar_one_or_none()
+    if system_user is None:
+        system_user = User(
+            id=system_user_id,
+            tenant_id=tenant.id,
+            username=system_username,
+            password_hash=hash_password(os.getenv("BOOTSTRAP_SYSTEM_PASSWORD", "system")),
+            is_admin=True,
+            status="active",
+        )
+        db.add(system_user)
+
     # Seed a minimal agent registry entry so the UI can boot.
     agent_id = os.getenv("BOOTSTRAP_AGENT_ID", "sql_agent")
     agent = db.execute(select(Agent).where(Agent.agent_id == agent_id)).scalar_one_or_none()

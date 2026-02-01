@@ -1,0 +1,18 @@
+[
+  {
+    "id": "aud_01JDEMO...",
+    "tenant_id": "t_01JDEMO...",
+    "actor_id": "u_01JDEMO...",
+    "action": "run.create",
+    "resource_type": "run",
+    "resource_id": "prun_01JDEMO...",
+    "request_id": "req_01JDEMO...",
+    "created_at": 1738339200000,
+    "details_json": {
+      "projectId": "proj_01JDEMO...",
+      "environmentId": "env_01JDEMO...",
+      "runId": "prun_01JDEMO...",
+      "clientRunId": "crun_01JDEMO..."
+    }
+  }
+]

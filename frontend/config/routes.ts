@@ -35,6 +35,48 @@ export default [
     component: './agents',
   },
   {
+    path: '/platform',
+    name: 'platform',
+    icon: 'appstore',
+    routes: [
+      {
+        path: '/platform',
+        redirect: '/platform/projects',
+      },
+      {
+        path: '/platform/projects',
+        name: 'projects',
+        component: './platform/projects',
+      },
+      {
+        path: '/platform/environments',
+        name: 'environments',
+        component: './platform/environments',
+      },
+      {
+        path: '/platform/runs',
+        name: 'runs',
+        component: './platform/runs',
+      },
+      {
+        path: '/platform/runs/:runId',
+        name: 'run-detail',
+        hideInMenu: true,
+        component: './platform/runs/detail',
+      },
+      {
+        path: '/platform/artifacts',
+        name: 'artifacts',
+        component: './platform/artifacts',
+      },
+      {
+        path: '/platform/audit',
+        name: 'audit',
+        component: './platform/audit',
+      },
+    ],
+  },
+  {
     path: '/welcome',
     name: 'welcome',
     icon: 'smile',

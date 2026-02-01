@@ -9,6 +9,7 @@
 
 ## 文档导航
 
+- `docs/standards.md`：规范与标准（文档入口、契约同步机制、变更规则）
 - `docs/architecture.md`：总体架构与模块边界（建议评审入口）
 - `docs/repo-layout.md`：代码仓库目录规划（前后端分离 + Execution/Control Plane）
 - `docs/control-plane.md`：Control Plane 设计（通用测试平台：模块/数据模型/API/流程/演进）
@@ -23,6 +24,13 @@
 - `docs/security-and-secrets.md`：鉴权、密钥、审计与多租户隔离约定
 - `docs/infra.md`：Infra（本地/测试环境：docker run 部署 Redis + Postgres 双 DB）
 - `docs/reuse-auth-db.md`：鉴权与 DB 管理可复用方案（Phase-1 简化 login -> Phase-2 OIDC）
+
+## 通用测试平台规划（优先）
+
+先搭平台通用能力（项目/环境/运行/报告/审计/附件），暂不绑定具体测试类型：
+
+- `docs/platform/README.md`：Platform 文档集入口
+- `docs/platform/00-overview.md`：通用测试平台总纲（MVP：Dummy Runner 跑通平台链路）
 
 ## 契约资产（跨前后端共享）
 

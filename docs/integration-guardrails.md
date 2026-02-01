@@ -69,6 +69,9 @@
 落地方式（最小 CI 规则）：
 - GitHub Actions: `.github/workflows/contract-guard.yml`
 
+规范化说明：
+- 关于“哪些变更算契约变更、必须同步哪些文件、CI 如何强制”的规则，统一见 `docs/standards.md`。
+
 ---
 
 ## 4) Phase-2 的更工业化方案（可选）

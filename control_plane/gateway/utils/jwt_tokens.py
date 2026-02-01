@@ -22,7 +22,7 @@ class InvalidTokenError(Exception):
     """Raised when a JWT cannot be decoded/validated."""
 
 
-def encode_access_token(*, user_id: str, tenant_id: str, username: str, is_admin: bool, expires_in: int = 1800) -> str:
+def encode_access_token(*, user_id: str, tenant_id: str, username: str, is_admin: bool, expires_in: int = 86400) -> str:
     now = int(time.time())
     payload = {
         "sub": user_id,

@@ -1,0 +1,26 @@
+{
+  "environment_id": "env_01JDEMO...",
+  "tenant_id": "t_01JDEMO...",
+  "project_id": "proj_01JDEMO...",
+  "name": "Local Env",
+  "type": "generic",
+  "status": "active",
+  "config_json": {
+    "executionTargetId": "local-dev",
+    "timeoutMs": 600000,
+    "labels": {
+      "purpose": "demo"
+    },
+    "policy": {
+      "maxConcurrentRuns": 1
+    },
+    "secrets": {},
+    "extensions": {}
+  },
+  "health_status": "unknown",
+  "last_error": null,
+  "active_run_id": null,
+  "lock_expires_at": null,
+  "created_at": 1738339200000,
+  "updated_at": 1738339200000
+}

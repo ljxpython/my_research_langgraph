@@ -1,4 +1,12 @@
 export default {
+  'menu.workbench': '工作台',
+  'menu.agents': 'Agents',
+  'menu.platform': '通用测试平台',
+  'menu.platform.projects': '项目',
+  'menu.platform.environments': '环境',
+  'menu.platform.runs': '运行',
+  'menu.platform.artifacts': '产物',
+  'menu.platform.audit': '审计',
   'menu.welcome': '欢迎',
   'menu.more-blocks': '更多区块',
   'menu.home': '首页',

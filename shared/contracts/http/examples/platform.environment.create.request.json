@@ -1,0 +1,16 @@
+{
+  "name": "Local Env",
+  "type": "generic",
+  "config_json": {
+    "executionTargetId": "local-dev",
+    "timeoutMs": 600000,
+    "labels": {
+      "purpose": "demo"
+    },
+    "policy": {
+      "maxConcurrentRuns": 1
+    },
+    "secrets": {},
+    "extensions": {}
+  }
+}

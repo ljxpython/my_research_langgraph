@@ -1,0 +1,24 @@
+{
+  "run_id": "prun_01JDEMO...",
+  "events": [
+    {
+      "event_id": "revt_01JDEMO...",
+      "seq": 1,
+      "ts": 1738339201000,
+      "type": "run.started",
+      "payload": {}
+    },
+    {
+      "event_id": "revt_01JDEMO...",
+      "seq": 2,
+      "ts": 1738339202000,
+      "type": "log.append",
+      "payload": {
+        "level": "info",
+        "message": "dummy step 1/5"
+      }
+    }
+  ],
+  "next_cursor": "2",
+  "has_more": false
+}

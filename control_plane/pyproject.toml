@@ -18,6 +18,7 @@ dependencies = [
   "pydantic-settings>=2.3.0",
   "langgraph-sdk>=0.1.0",
   "python-multipart>=0.0.9",
+  "redis>=5.0.0",
 ]
 
 [tool.pytest.ini_options]

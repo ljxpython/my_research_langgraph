@@ -1,4 +1,12 @@
 export default {
+  'menu.workbench': 'Workbench',
+  'menu.agents': 'Agents',
+  'menu.platform': 'Platform',
+  'menu.platform.projects': 'Projects',
+  'menu.platform.environments': 'Environments',
+  'menu.platform.runs': 'Runs',
+  'menu.platform.artifacts': 'Artifacts',
+  'menu.platform.audit': 'Audit',
   'menu.welcome': 'Welcome',
   'menu.more-blocks': 'More Blocks',
   'menu.home': 'Home',

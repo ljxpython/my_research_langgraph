@@ -3,13 +3,39 @@
   dev.db dev.db-stop \
   cp.migrate \
   fe.install \
+  fe.tsc \
+  cp.smoke \
   dev.check dev.check-loop \
   dev.exec dev.cp dev.frontend \
   dev.platform dev.platform-stop dev.platform-bg dev.platform-bg-stop
 
+# ==================== 中文说明（给新同学） ====================
+#
+# 这个 Makefile 的目标：把“本地开发/联调”涉及的命令放在一个入口里，避免口口相传。
+#
+# 三个核心进程：
+# - Execution Plane（LangGraph dev）：make dev.exec
+# - Control Plane（FastAPI）：make dev.cp
+# - Frontend（Ant Design Pro）：make dev.frontend
+#
+# 常用两种启动方式：
+# - 一键联调：make dev.platform（优先 tmux；无 tmux 会自动 fallback 到后台模式）
+# - 手动启动：先 make dev.db，然后分别在两个终端启动 dev.cp 与 dev.frontend
+#
+# 常用环境变量（都可以在 make 命令后覆盖）：
+# - CP_PORT：Control Plane 端口（默认 8000）
+# - CP_DB_URI：Control Plane 连接串（默认本机 5432/control_plane_db）
+# - DEV_DB：是否自动启动 docker 依赖（默认 1；设为 0 表示你自备 DB/Redis）
+# - DEV_HEALTH：是否额外开一个 health-check pane（默认 0；设为 1 会跑 dev.check-loop）
+#
+# 详细“执行顺序/命令清单”请看：docs/dev-commands.md
+
 # ==================== Config ====================
 
 TMUX_SESSION ?= platform-dev
+
+# Prefer python3 (macOS usually has no `python` shim)
+PY ?= python3
 
 # Start local infra by default (Docker: Postgres + Redis)
 DEV_DB ?= 1
@@ -46,6 +72,13 @@ UV_ACTIVE_FLAG :=
 endif
 
 help:
+	@echo "常用命令（中文）:";
+	@echo "  make dev.db         - 启动本地依赖（docker: Postgres+Redis，并创建数据库）";
+	@echo "  make dev.cp         - 启动 Control Plane（会自动跑 cp.migrate）";
+	@echo "  make dev.frontend   - 启动前端（首次需 make fe.install）";
+	@echo "  make dev.platform   - 一键启动 exec+cp+frontend（有 tmux 更舒服）";
+	@echo "  make cp.smoke       - 平台 API 冒烟测试（需要 Postgres）";
+	@echo "";
 	@echo "Targets:";
 	@echo "  py.sync            - Sync Python deps (root + control_plane)";
 	@echo "  py.sync-active     - Sync Python deps into ACTIVE venv (UV_ACTIVE=1)";
@@ -55,8 +88,10 @@ help:
 	@echo "  dev.cp             - Run Control Plane (FastAPI)";
 	@echo "  cp.migrate         - Run Alembic migrations for Control Plane";
 	@echo "  fe.install         - Install frontend dependencies (npm install)";
+	@echo "  fe.tsc             - Typecheck frontend (tsc --noEmit)";
 	@echo "  dev.frontend       - Run Frontend (AntD Pro)";
 	@echo "  dev.platform       - Start exec+cp+frontend (tmux if available)";
+	@echo "  cp.smoke           - Smoke test platform APIs (requires Postgres)";
 	@echo "  dev.check          - Health check (ports + CP /healthz)";
 	@echo "  dev.check-loop     - Health check loop (watch)";
 	@echo "  dev.platform-stop  - Stop tmux session (if used)";
@@ -77,18 +112,18 @@ help:
 
 dev.check:
 	@port_rc=0; api_rc=0; \
-	python -c "import socket,sys; exec(\"checks=[(\\\"CP\\\",\\\"$(CP_HOST)\\\",$(CP_PORT)),(\\\"LG\\\",\\\"$(LG_HOST)\\\",$(LG_PORT)),(\\\"FE\\\",\\\"$(FE_HOST)\\\",$(FE_PORT)),(\\\"PG\\\",\\\"127.0.0.1\\\",5432),(\\\"REDIS\\\",\\\"127.0.0.1\\\",6379)]\\n\
-bad=0\\n\
-for name,host,port in checks:\\n\
-  s=socket.socket(); s.settimeout(0.5); rc=s.connect_ex((host,port)); s.close(); ok=(rc==0)\\n\
-  print(f\\\"{name}: {host}:{port} \\\" + (\\\"OK\\\" if ok else \\\"FAIL\\\"))\\n\
-  bad += (0 if ok else 1)\\n\
-sys.exit(0 if bad==0 else 2)\\n\")" || port_rc=$$?; \
+	$(PY) -c "import socket,sys; exec(\"checks=[(\\\"CP\\\",\\\"$(CP_HOST)\\\",$(CP_PORT)),(\\\"LG\\\",\\\"$(LG_HOST)\\\",$(LG_PORT)),(\\\"FE\\\",\\\"$(FE_HOST)\\\",$(FE_PORT)),(\\\"PG\\\",\\\"127.0.0.1\\\",5432),(\\\"REDIS\\\",\\\"127.0.0.1\\\",6379)]\\n\
+ bad=0\\n\
+ for name,host,port in checks:\\n\
+   s=socket.socket(); s.settimeout(0.5); rc=s.connect_ex((host,port)); s.close(); ok=(rc==0)\\n\
+   print(f\\\"{name}: {host}:{port} \\\" + (\\\"OK\\\" if ok else \\\"FAIL\\\"))\\n\
+   bad += (0 if ok else 1)\\n\
+ sys.exit(0 if bad==0 else 2)\\n\")" || port_rc=$$?; \
 	if command -v curl >/dev/null 2>&1; then \
 		curl -sf "http://$(CP_HOST):$(CP_PORT)/healthz" >/dev/null && echo "CP /healthz: OK" || api_rc=2; \
 		if [ $$api_rc -eq 0 ]; then \
 			curl -sf "http://$(CP_HOST):$(CP_PORT)/openapi.json" | \
-				python -c "import json,sys; d=json.load(sys.stdin); paths=(d.get(\\\"paths\\\") or {}); want=\\\"/v1/auth/login\\\"; ok=(want in paths); print(\\\"CP openapi has \\\"+want+\\\": \\\"+(\\\"OK\\\" if ok else \\\"FAIL\\\")); (not ok and \\\"/agent\\\" in paths) and print(\\\"Hint: this looks like teach/agui demo server, not Control Plane (port conflict).\\\"); sys.exit(0 if ok else 3)" \
+				$(PY) -c "import json,sys; d=json.load(sys.stdin); paths=(d.get(\\\"paths\\\") or {}); want=\\\"/v1/auth/login\\\"; ok=(want in paths); print(\\\"CP openapi has \\\"+want+\\\": \\\"+(\\\"OK\\\" if ok else \\\"FAIL\\\")); (not ok and \\\"/agent\\\" in paths) and print(\\\"Hint: this looks like teach/agui demo server, not Control Plane (port conflict).\\\"); sys.exit(0 if ok else 3)" \
 				|| api_rc=$$?; \
 		fi; \
 	else \
@@ -182,9 +217,10 @@ dev.cp:
 
 cp.migrate:
 	@echo "Running Control Plane migrations (alembic upgrade head)...";
-	@python -c "import socket,sys; s=socket.socket(); s.settimeout(0.5); rc=s.connect_ex(('127.0.0.1',5432)); s.close(); sys.exit(0 if rc==0 else 1)" \
+	@$(PY) -c "import socket,sys; s=socket.socket(); s.settimeout(0.5); rc=s.connect_ex(('127.0.0.1',5432)); s.close(); sys.exit(0 if rc==0 else 1)" \
 	  || (echo "Postgres not reachable at 127.0.0.1:5432. Run: make dev.db (Docker) or set CP_DB_URI to your Postgres." && exit 1)
 	CONTROL_PLANE_DATABASE_URI=$(CP_DB_URI) \
+	PYTHONPATH=. \
 	uv run $(UV_ACTIVE_FLAG) --package control-plane --directory control_plane \
 	  python -m alembic -c alembic.ini upgrade head
 
@@ -199,6 +235,62 @@ dev.frontend:
 fe.install:
 	@echo "Installing frontend dependencies (npm install)...";
 	HUSKY=0 npm --prefix frontend install
+
+fe.tsc:
+	@echo "Typechecking frontend (tsc --noEmit)...";
+	npm --prefix frontend run tsc
+
+cp.smoke:
+	@echo "Running Control Plane platform smoke test...";
+	@$(MAKE) cp.migrate
+	CONTROL_PLANE_DATABASE_URI=$(CP_DB_URI) \
+	BOOTSTRAP_TENANT_NAME=default \
+	BOOTSTRAP_ADMIN_USERNAME=test \
+	BOOTSTRAP_ADMIN_PASSWORD=test \
+	PYTHONPATH=. \
+	uv run $(UV_ACTIVE_FLAG) --package control-plane --directory control_plane \
+	  python - <<'PY'
+	import time
+	from fastapi.testclient import TestClient
+	from gateway.main import create_app
+	
+	app = create_app()
+	with TestClient(app) as client:
+	  r = client.post('/v1/auth/login', json={'username': 'test', 'password': 'test'})
+	  assert r.status_code == 200, r.text
+	  token = r.json()['access_token']
+	  headers = {'Authorization': f'Bearer {token}', 'X-Request-Id': 'req_make_smoke'}
+	
+	  r = client.post('/v1/projects', json={'name': 'Smoke Project', 'description': 'smoke'}, headers=headers)
+	  assert r.status_code == 201, r.text
+	  proj = r.json()['project_id']
+	
+	  r = client.post(f'/v1/projects/{proj}/environments', json={'name': 'Smoke Env', 'type': 'generic', 'config_json': {}}, headers=headers)
+	  assert r.status_code == 201, r.text
+	  env = r.json()['environment_id']
+	
+	  r = client.post(
+	    f'/v1/projects/{proj}/runs',
+	    json={'client_run_id': 'crun_smoke_make', 'environment_id': env, 'runner': 'dummy', 'params': {}},
+	    headers=headers,
+	  )
+	  assert r.status_code in (200, 201), r.text
+	  run_id = r.json()['run_id']
+	
+	  for _ in range(30):
+	    r = client.get(f'/v1/runs/{run_id}', headers=headers)
+	    assert r.status_code == 200, r.text
+	    if r.json().get('status') in ('succeeded', 'failed', 'canceled'):
+	      break
+	    time.sleep(0.5)
+	
+	  r = client.get(f'/v1/runs/{run_id}/events', headers=headers)
+	  assert r.status_code == 200, r.text
+	  body = r.json()
+	  assert 'events' in body and 'nextCursor' in body and 'hasMore' in body
+	
+	print('CP_SMOKE_OK')
+	PY
 
 
 # ==================== Dev - one-shot platform ====================

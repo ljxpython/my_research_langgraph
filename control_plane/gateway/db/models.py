@@ -11,7 +11,7 @@ We do NOT store messages/state bodies here.
 
 from __future__ import annotations
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -136,4 +136,150 @@ class AuditEvent(Base):
     __table_args__ = (
         Index("ix_audit_resource", "resource_type", "resource_id", "created_at"),
         Index("ix_audit_tenant_created", "tenant_id", "created_at"),
+    )
+
+
+# ==================== Platform（projects/environments/runs/artifacts） ====================
+
+
+class Project(Base):
+    __tablename__ = "projects"
+
+    project_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+
+    created_by: Mapped[str] = mapped_column(String(64), ForeignKey("users.id"), index=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("ix_projects_tenant_created", "tenant_id", "created_at"),
+    )
+
+
+class ProjectMember(Base):
+    __tablename__ = "project_members"
+
+    project_id: Mapped[str] = mapped_column(String(64), ForeignKey("projects.project_id"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id"), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+
+    role: Mapped[str] = mapped_column(String(32), nullable=False)  # owner/maintainer/viewer
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_project_members_tenant_project", "tenant_id", "project_id"),
+    )
+
+
+class Environment(Base):
+    __tablename__ = "environments"
+
+    environment_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    project_id: Mapped[str] = mapped_column(String(64), ForeignKey("projects.project_id"), index=True)
+
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+    type: Mapped[str] = mapped_column(String(32), nullable=False, default="generic")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+
+    config_json: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    health_status: Mapped[str] = mapped_column(String(32), nullable=False, default="unknown")
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Concurrency lock slot (single active run per environment).
+    active_run_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    lock_acquired_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    lock_expires_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("ix_env_tenant_project_name", "tenant_id", "project_id", "name"),
+    )
+
+
+class PlatformRun(Base):
+    __tablename__ = "platform_runs"
+
+    run_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    project_id: Mapped[str] = mapped_column(String(64), ForeignKey("projects.project_id"), index=True)
+    environment_id: Mapped[str] = mapped_column(String(64), ForeignKey("environments.environment_id"), index=True)
+
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    runner: Mapped[str] = mapped_column(String(32), nullable=False, default="dummy")
+
+    client_run_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    params_json: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    triggered_by: Mapped[str] = mapped_column(String(64), ForeignKey("users.id"), index=True)
+
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    started_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    cancel_requested_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    canceled_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    summary_json: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+    # Monotonic event sequence allocation.
+    next_event_seq: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        Index("ix_platform_runs_tenant_project_created", "tenant_id", "project_id", "created_at"),
+        Index("ix_platform_runs_project_client", "project_id", "client_run_id", unique=True),
+        Index("ix_platform_runs_env_status", "environment_id", "status"),
+    )
+
+
+class PlatformRunEvent(Base):
+    __tablename__ = "platform_run_events"
+
+    event_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    project_id: Mapped[str] = mapped_column(String(64), ForeignKey("projects.project_id"), index=True)
+    run_id: Mapped[str] = mapped_column(String(64), ForeignKey("platform_runs.run_id"), index=True)
+
+    seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    ts: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    type: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_json: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+    __table_args__ = (
+        Index("ix_platform_run_events_run_seq", "run_id", "seq", unique=True),
+        Index("ix_platform_run_events_tenant_run_seq", "tenant_id", "run_id", "seq"),
+    )
+
+
+class Artifact(Base):
+    __tablename__ = "artifacts"
+
+    artifact_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    project_id: Mapped[str] = mapped_column(String(64), ForeignKey("projects.project_id"), index=True)
+    run_id: Mapped[str | None] = mapped_column(String(64), ForeignKey("platform_runs.run_id"), nullable=True, index=True)
+
+    kind: Mapped[str] = mapped_column(String(64), nullable=False, default="other")
+    filename: Mapped[str] = mapped_column(String(512), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    storage_key: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_by: Mapped[str] = mapped_column(String(64), ForeignKey("users.id"), index=True)
+
+    __table_args__ = (
+        Index("ix_artifacts_tenant_project_created", "tenant_id", "project_id", "created_at"),
+        Index("ix_artifacts_run", "run_id", "created_at"),
     )

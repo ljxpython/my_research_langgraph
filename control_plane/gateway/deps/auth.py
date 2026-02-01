@@ -38,8 +38,10 @@ def get_current_user(
     except InvalidTokenError:
         raise HTTPException(status_code=401, detail="UNAUTHORIZED")
     user = get_user_by_id(db, user_id=claims.sub)
-    if user is None or user.status != "active":
+    if user is None:
         raise HTTPException(status_code=401, detail="UNAUTHORIZED")
+    # Phase A 决策：禁用用户不强制立即使已签发 token 失效（窗口期最长 token TTL）。
+    # 因此这里不按 user.status 做强制拦截；只禁止其重新登录签发新 token（见 auth_service.login）。
     if user.tenant_id != claims.tenant_id:
         raise HTTPException(status_code=401, detail="UNAUTHORIZED")
 

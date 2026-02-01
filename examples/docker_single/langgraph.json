@@ -11,7 +11,8 @@
   ],
   "graphs": {
     "agent": "./app/agent.py:agent",
-    "agent_not_deep": "./app/agent.py:agent_not_deep"
+    "agent_not_deep": "./app/agent.py:agent_not_deep",
+    "sql_agent": "./app/sql_agent.py:agent"
   },
   "env": ".env",
   "image_distro": "wolfi",

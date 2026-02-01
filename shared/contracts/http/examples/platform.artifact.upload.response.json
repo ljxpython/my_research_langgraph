@@ -1,0 +1,13 @@
+{
+  "artifact_id": "art_01JDEMO...",
+  "tenant_id": "t_01JDEMO...",
+  "project_id": "proj_01JDEMO...",
+  "run_id": "prun_01JDEMO...",
+  "kind": "log_file",
+  "filename": "run.log",
+  "content_type": "text/plain",
+  "size_bytes": 12345,
+  "created_at": 1738339203000,
+  "created_by": "u_01JDEMO...",
+  "download_url": "/v1/artifacts/art_01JDEMO.../download"
+}

@@ -8,7 +8,7 @@ from gateway.utils.jwt_tokens import decode_access_token, encode_access_token
 from gateway.utils.passwords import verify_password
 
 
-def login(db, *, tenant_id: str, username: str, password: str, expires_in: int = 1800) -> LoginResponse | None:
+def login(db, *, tenant_id: str, username: str, password: str, expires_in: int = 86400) -> LoginResponse | None:
     user = get_user_by_username(db, tenant_id=tenant_id, username=username)
     if user is None:
         return None

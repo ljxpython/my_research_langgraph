@@ -11,7 +11,8 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    expires_in: int = 1800
+    # Phase A 冻结：24h
+    expires_in: int = 86400
 
 
 class MeResponse(BaseModel):
