@@ -381,6 +381,9 @@ control_plane/.data/
 # Local execution plane runtime data
 execution_plane/.data/
 
+# Local workspace runtime data
+.data/
+
 # Research scratch / vendored references (explicitly not part of the product)
 tmp/
 
