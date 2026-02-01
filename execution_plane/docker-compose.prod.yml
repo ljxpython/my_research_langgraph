@@ -1,0 +1,53 @@
+services:
+  ep-redis:
+    image: redis:6
+    container_name: ep-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 1s
+      retries: 10
+
+  ep-postgres:
+    image: postgres:16
+    container_name: ep-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: langgraph_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ep-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d langgraph_db"]
+      interval: 5s
+      timeout: 1s
+      retries: 20
+      start_period: 5s
+
+  ep-api:
+    image: ${EP_IMAGE_TAG:-ep-langgraph-api:local}
+    container_name: ep-api
+    restart: unless-stopped
+    ports:
+      - "${EP_API_PORT:-8123}:8000"
+    depends_on:
+      ep-redis:
+        condition: service_healthy
+      ep-postgres:
+        condition: service_healthy
+    # 说明：
+    # - 这里会读取 execution_plane/.env（请自行创建，不要提交）。
+    # - 该文件只应包含 LLM keys 等敏感信息，不要放 DATABASE_URI/REDIS_URI。
+    env_file:
+      - .env
+    environment:
+      REDIS_URI: redis://ep-redis:6379/0
+      DATABASE_URI: postgres://postgres:postgres@ep-postgres:5432/langgraph_db?sslmode=disable
+      # 注意：license / LangSmith key 不要在 compose 里 hardcode。
+      # 如果需要，请放在 execution_plane/.env（env_file）里。
+
+volumes:
+  ep-postgres-data:
+    driver: local

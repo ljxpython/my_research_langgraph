@@ -1,6 +1,9 @@
 export default {
   'menu.workbench': '工作台',
   'menu.agents': 'Agents',
+  'menu.sql-agent': 'SQL Agent',
+  'menu.sql-agent.chat': '对话',
+  'menu.sql-agent.workbench': '工作台',
   'menu.platform': '通用测试平台',
   'menu.platform.projects': '项目',
   'menu.platform.environments': '环境',

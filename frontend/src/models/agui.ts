@@ -78,6 +78,10 @@ function makeMessageId(prefix: string): string {
 export default function useAguiModel() {
   const [threadId, setThreadId] = React.useState<string>('');
   const [busy, setBusy] = React.useState<boolean>(false);
+  // 与 agent-chat-ui 类似：busy 不仅表示“已开始跑”，也表示“请求已发出/正在建立流”。
+  const [streamConnecting, setStreamConnecting] = React.useState<boolean>(false);
+  const [snapshotLoading, setSnapshotLoading] = React.useState<boolean>(false);
+  const [firstTokenReceived, setFirstTokenReceived] = React.useState<boolean>(false);
   const [activeRunId, setActiveRunId] = React.useState<string>('');
   const [selectedAgentId, setSelectedAgentId] = React.useState<string>('');
 
@@ -89,6 +93,7 @@ export default function useAguiModel() {
   );
 
   const abortRef = React.useRef<AbortController | null>(null);
+  const inflightRef = React.useRef<boolean>(false);
 
   const applyEvent = React.useCallback((evt: AguiEvent) => {
     if (!evt || typeof evt !== 'object') return;
@@ -100,26 +105,34 @@ export default function useAguiModel() {
         const nextRunId = typeof evt.runId === 'string' ? evt.runId : '';
         if (nextThreadId) setThreadId(nextThreadId);
         setBusy(true);
+        setStreamConnecting(false);
+        setFirstTokenReceived(false);
         setActiveRunId(nextRunId);
         return;
       }
       case 'RUN_FINISHED': {
         setBusy(false);
+        setStreamConnecting(false);
+        setFirstTokenReceived(false);
         setActiveRunId('');
         return;
       }
       case 'RUN_ERROR': {
         setBusy(false);
+        setStreamConnecting(false);
+        setFirstTokenReceived(false);
         setActiveRunId('');
         return;
       }
       case 'MESSAGES_SNAPSHOT': {
         const next = Array.isArray((evt as any).messages) ? (evt as any).messages : [];
         setMessages(next as AguiMessage[]);
+        setFirstTokenReceived(true);
         return;
       }
       case 'STATE_SNAPSHOT': {
         setState(coerceAguiState((evt as any).snapshot));
+        setFirstTokenReceived(true);
         return;
       }
       case 'CUSTOM': {
@@ -149,6 +162,9 @@ export default function useAguiModel() {
     stopStream();
     setThreadId('');
     setBusy(false);
+    setStreamConnecting(false);
+    setSnapshotLoading(false);
+    setFirstTokenReceived(false);
     setActiveRunId('');
     setSelectedAgentId('');
     setMessages([]);
@@ -158,15 +174,23 @@ export default function useAguiModel() {
 
   const loadSnapshot = React.useCallback(async (id: string) => {
     const { getThreadSnapshot } = await import('@/services/controlPlane/threads');
-    const resp = await getThreadSnapshot(id, { skipErrorHandler: true });
-    const snap = resp as unknown as ControlPlaneThreadSnapshot;
-    setThreadId(snap.threadId);
-    setBusy(!!snap.busy);
-    setActiveRunId(snap.activeRunId || '');
-    setSelectedAgentId(snap.agentId || '');
-    setMessages(Array.isArray(snap.messages) ? snap.messages : []);
-    setState(coerceAguiState(snap.state));
-    return snap;
+    setSnapshotLoading(true);
+    try {
+      const resp = await getThreadSnapshot(id, { skipErrorHandler: true });
+      const snap = resp as unknown as ControlPlaneThreadSnapshot;
+      setThreadId(snap.threadId);
+      setBusy(!!snap.busy);
+      setStreamConnecting(false);
+      // Snapshot succeeded; treat as having initial data.
+      setFirstTokenReceived(true);
+      setActiveRunId(snap.activeRunId || '');
+      setSelectedAgentId(snap.agentId || '');
+      setMessages(Array.isArray(snap.messages) ? snap.messages : []);
+      setState(coerceAguiState(snap.state));
+      return snap;
+    } finally {
+      setSnapshotLoading(false);
+    }
   }, []);
 
   const ensureThread = React.useCallback(async () => {
@@ -200,6 +224,10 @@ export default function useAguiModel() {
       messages: AguiMessage[];
       forwardedProps?: Record<string, any>;
     }) => {
+      if (inflightRef.current) {
+        return { ok: false as const, reason: 'BUSY' as const };
+      }
+      inflightRef.current = true;
       const { agentId, threadId: tid, messages: nextMessages, forwardedProps } =
         params;
 
@@ -207,6 +235,11 @@ export default function useAguiModel() {
       stopStream();
       const ctrl = new AbortController();
       abortRef.current = ctrl;
+
+      // 立刻进入 busy/connecting，避免 RUN_STARTED 到达前用户连续点击导致并发请求。
+      setBusy(true);
+      setStreamConnecting(true);
+      setFirstTokenReceived(false);
 
       const runInput: ControlPlaneRunAgentInput = {
         thread_id: tid,
@@ -233,6 +266,10 @@ export default function useAguiModel() {
           runInput,
           {
             onEvent: applyEvent,
+            onOpen: () => {
+              // 连接已建立；RUN_STARTED 会很快到达。
+              setStreamConnecting(true);
+            },
           },
           { signal: ctrl.signal },
         );
@@ -247,7 +284,20 @@ export default function useAguiModel() {
           const th = typeof details.threadId === 'string' ? details.threadId : '';
           if (th) setThreadId(th);
           setBusy(true);
+          setStreamConnecting(false);
           setActiveRunId(active);
+
+          // best-effort: 触发 snapshot，让 CP 有机会做 stale busy reconciliation。
+          // 如果 snapshot 返回不 busy，则认为是“陈旧 busy”，自动重试一次。
+          try {
+            const snap = await loadSnapshot(th || tid);
+            if (snap && !snap.busy) {
+              // Avoid infinite loops.
+              return { ok: false as const, reason: 'RETRY' as const };
+            }
+          } catch {
+            // ignore
+          }
           return {
             ok: false as const,
             reason: 'THREAD_BUSY' as const,
@@ -256,6 +306,7 @@ export default function useAguiModel() {
         }
 
         setBusy(false);
+        setStreamConnecting(false);
         setActiveRunId('');
         return { ok: false as const, reason: 'ERROR' as const, error: e };
       } finally {
@@ -263,9 +314,10 @@ export default function useAguiModel() {
         if (abortRef.current === ctrl) {
           abortRef.current = null;
         }
+        inflightRef.current = false;
       }
     },
-    [applyEvent, state, stopStream],
+    [applyEvent, loadSnapshot, state, stopStream],
   );
 
   const sendUserMessage = React.useCallback(
@@ -277,8 +329,14 @@ export default function useAguiModel() {
         return { ok: false as const, reason: 'NO_AGENT' as const };
       }
 
-      if (!threadId) {
-        return { ok: false as const, reason: 'NO_THREAD' as const };
+      let tid = threadId;
+      if (!tid) {
+        // agent-chat-ui-like UX: allow first message to create a thread automatically.
+        try {
+          tid = await ensureThread();
+        } catch (e) {
+          return { ok: false as const, reason: 'NO_THREAD' as const, error: e };
+        }
       }
 
       if (busy) {
@@ -294,13 +352,23 @@ export default function useAguiModel() {
       const nextMessages = [...messages, userMsg];
       setMessages(nextMessages);
 
-      return startRun({
+      const res = await startRun({
         agentId: selectedAgentId,
-        threadId,
+        threadId: tid,
         messages: nextMessages,
       });
+
+      // 如果 startRun 检测到可能是 stale busy，允许用户消息“无损重试”一次。
+      if (!(res as any).ok && (res as any).reason === 'RETRY') {
+        return startRun({
+          agentId: selectedAgentId,
+          threadId: tid,
+          messages: nextMessages,
+        });
+      }
+      return res;
     },
-    [busy, messages, selectedAgentId, startRun, threadId],
+    [busy, ensureThread, messages, selectedAgentId, startRun, threadId],
   );
 
   const resumeInterrupt = React.useCallback(
@@ -368,6 +436,9 @@ export default function useAguiModel() {
       // state
       threadId,
       busy,
+      streamConnecting,
+      snapshotLoading,
+      firstTokenReceived,
       activeRunId,
       selectedAgentId,
       messages,
@@ -395,12 +466,15 @@ export default function useAguiModel() {
       interrupt,
       loadSnapshot,
       messages,
+      firstTokenReceived,
+      snapshotLoading,
       requestCancel,
       reset,
       resumeInterrupt,
       sendUserMessage,
       selectedAgentId,
       state,
+      streamConnecting,
       threadId,
     ],
   );

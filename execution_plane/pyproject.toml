@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=65"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "execution-plane"
+version = "0.1.0"
+description = "Execution Plane (LangGraph graphs)"
+requires-python = ">=3.13"
+dependencies = [
+  # LangGraph Agent Server CLI (dev/inmem mode)
+  "langgraph-cli[inmem]>=0.4.12",
+  "langgraph>=1.0.7",
+
+  # Graph runtime deps
+  "langchain[openai]>=1.2.7",
+  "langchain-community>=0.4.1",
+  "langchain-openai>=0.3.0",
+  "langchain-deepseek>=1.0.1",
+  "deepagents>=0.3.9",
+  "python-dotenv>=1.2.1",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

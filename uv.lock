@@ -5,6 +5,7 @@ requires-python = ">=3.13"
 [manifest]
 members = [
     "control-plane",
+    "execution-plane",
     "my-research-langgraph",
 ]
 
@@ -450,6 +451,33 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b2/9d/c3b43da9515bd270df0f80548d9944e389870713cc1fe2b8fb35fe2bcefd/docstring_parser-0.17.0.tar.gz", hash = "sha256:583de4a309722b3315439bb31d64ba3eebada841f2e2cee23b99df001434c912", size = 27442 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/55/e2/2537ebcff11c1ee1ff17d8d0b6f4db75873e3b0fb32c2d4a2ee31ecb310a/docstring_parser-0.17.0-py3-none-any.whl", hash = "sha256:cf2569abd23dce8099b300f9b4fa8191e9582dda731fd533daf54c4551658708", size = 36896 },
+]
+
+[[package]]
+name = "execution-plane"
+version = "0.1.0"
+source = { editable = "execution_plane" }
+dependencies = [
+    { name = "deepagents" },
+    { name = "langchain", extra = ["openai"] },
+    { name = "langchain-community" },
+    { name = "langchain-deepseek" },
+    { name = "langchain-openai" },
+    { name = "langgraph" },
+    { name = "langgraph-cli", extra = ["inmem"] },
+    { name = "python-dotenv" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "deepagents", specifier = ">=0.3.9" },
+    { name = "langchain", extras = ["openai"], specifier = ">=1.2.7" },
+    { name = "langchain-community", specifier = ">=0.4.1" },
+    { name = "langchain-deepseek", specifier = ">=1.0.1" },
+    { name = "langchain-openai", specifier = ">=0.3.0" },
+    { name = "langgraph", specifier = ">=1.0.7" },
+    { name = "langgraph-cli", extras = ["inmem"], specifier = ">=0.4.12" },
+    { name = "python-dotenv", specifier = ">=1.2.1" },
 ]
 
 [[package]]

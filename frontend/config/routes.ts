@@ -35,6 +35,27 @@ export default [
     component: './agents',
   },
   {
+    path: '/sql-agent',
+    name: 'sql-agent',
+    icon: 'database',
+    routes: [
+      {
+        path: '/sql-agent',
+        redirect: '/sql-agent/chat',
+      },
+      {
+        path: '/sql-agent/chat',
+        name: 'chat',
+        component: './sql-agent/chat',
+      },
+      {
+        path: '/sql-agent/workbench',
+        name: 'workbench',
+        component: './sql-agent/workbench',
+      },
+    ],
+  },
+  {
     path: '/platform',
     name: 'platform',
     icon: 'appstore',

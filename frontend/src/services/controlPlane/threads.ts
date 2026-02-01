@@ -5,6 +5,7 @@ import type {
   ControlPlaneCreateThreadRequest,
   ControlPlaneCreateThreadResponse,
   ControlPlaneThreadSnapshot,
+  ControlPlaneThreadSummary,
 } from './types';
 
 // ==================== Threads API ====================
@@ -34,6 +35,17 @@ export async function getThreadSnapshot(
       ...(options || {}),
     },
   );
+}
+
+export async function listThreads(
+  params?: { agentId?: string; limit?: number },
+  options?: { [key: string]: any },
+) {
+  return request<ControlPlaneThreadSummary[]>('/v1/threads', {
+    method: 'GET',
+    params: params || {},
+    ...(options || {}),
+  });
 }
 
 export async function cancelRun(

@@ -44,7 +44,8 @@ git submodule update --init --recursive
 建议在仓库根目录提供统一入口（Makefile 或 scripts/）：
 
 - `dev.exec`：启动 Execution Plane（langgraph dev）
-- `dev.debug-ui`：启动 agent-chat-ui（直连执行面）
+- `dev.debug-ui`：启动 agent-chat-ui（直连执行面；有自动/手动两种启动方式）
+- `debug-ui.install`：安装 agent-chat-ui 依赖（pnpm）
 - `dev.cp`：启动 Control Plane（FastAPI Gateway）
 - `dev.frontend`：启动平台前端（AntD Pro）
 - `dev.platform`：启动 exec + cp + frontend（平台联调）
@@ -99,8 +100,18 @@ git submodule update --init --recursive
 - `make dev.cp`：只启动 Control Plane
 - `make dev.frontend`：只启动 Frontend
 - `make dev.exec`：只启动 LangGraph dev
+- `make ep.prod.build`：构建 Execution Plane 的 Docker 镜像（LangGraph Agent Server）
+- `make ep.prod.up`：启动 Execution Plane（docker compose：Redis + Postgres + API）
+- `make ep.prod.health`：检查 Execution Plane 健康状态（`/ok`）
+- `make ep.prod.logs`：查看 Execution Plane 日志
+- `make ep.prod.down`：停止 Execution Plane（docker compose down）
+- `make debug-ui.install`：安装 agent-chat-ui 依赖（pnpm）
+- `make dev.debug-ui`：启动 agent-chat-ui（自动直连执行面，跳过表单）
+- `make dev.debug-ui-manual`：启动 agent-chat-ui（保留手动输入 URL/graph 的表单）
 - `make cp.smoke`：只跑平台 API 冒烟测试（会先 migrate）
 - `make fe.tsc`：只做前端 typecheck
+
+注意：`ep.prod.up` 需要在 `execution_plane/.env` 里提供 `LANGSMITH_API_KEY`（用于本地 production-like 调试）或 `LANGGRAPH_CLOUD_LICENSE_KEY`（生产）。
 
 uv 虚拟环境策略（最佳实践，结合你们的诉求）：
 

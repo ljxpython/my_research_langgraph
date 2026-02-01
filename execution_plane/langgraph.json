@@ -1,0 +1,19 @@
+{
+  "$schema": "https://langgra.ph/schema.json",
+  "dependencies": [
+    "langchain",
+    "langchain-community",
+    "langchain-openai",
+    "langchain-deepseek",
+    "deepagents",
+    "python-dotenv",
+    "."
+  ],
+  "graphs": {
+    "sql_agent": "./src/ep/agents/sql_agent/graph.py:graph"
+  },
+  "env": ".env",
+  "image_distro": "wolfi",
+  "python_version": "3.13",
+  "pip_installer": "uv"
+}

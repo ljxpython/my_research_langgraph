@@ -85,6 +85,26 @@
 - 日常“调 graph”走直连入口
 - 上线前/回归验证走平台入口
 
+### 4.1 验收矩阵：每条入口“能证明什么 / 不能证明什么”
+
+直连执行面（Execution Plane / agent-chat-ui）能证明：
+- graph 本体可用：prompt/tool/state/checkpoint/interrupt-resume
+- LangGraph Agent Server API 与 streaming 基础能力可用（threads/runs/stream）
+
+直连执行面不能证明（平台语义一律不算）：
+- 鉴权/租户隔离/RBAC（包括 IDOR 防护）
+- 并发治理：`THREAD_BUSY` / HTTP 409、断线恢复、cancel/snapshot 平台语义
+- 审计、脱敏、工具白名单/策略注入、配额与限流
+- 对外契约稳定性（AG-UI 事件序列、错误码、CUSTOM 命名空间）
+
+平台入口（Control Plane / AG-UI）能证明：
+- 你们对外承诺的协议与平台治理语义是否正确（AG-UI SSE + busy/cancel/snapshot/audit 等）
+
+### 4.2 生产安全边界（共识，必须写死）
+
+- 对终端用户：只暴露 Control Plane（AG-UI）。
+- Execution Plane 不作为对外入口；如需 `agent-chat-ui`，仅限内网/运维通道使用。
+
 ---
 
 ## 5. Graph 输入必须“可独立运行”的约束（为了解耦）
@@ -133,4 +153,4 @@
 
 未来扩展：
 - 如果你们引入其他执行引擎/LLM 框架（不再是 LangGraph server API），此时 Dojo（AG-UI 原生）会更通用。
-- Dojo 可作为“协议一致性验证工具”：只要后端输出 AG-UI SSE，就能复用。
+- Dojo 可作为联调参考/对照工具：只要后端输出 AG-UI SSE，就能复用（但不替代平台语义验收）。

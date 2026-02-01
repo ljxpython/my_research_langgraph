@@ -79,6 +79,14 @@ export type ControlPlaneThreadSnapshot = {
   state: AguiState;
 };
 
+export type ControlPlaneThreadSummary = {
+  threadId: string;
+  agentId: string;
+  busy: boolean;
+  activeRunId: string | null;
+  updatedAt: number;
+};
+
 export type ControlPlaneCancelRunResponse = {
   ok: boolean;
   threadId: string;

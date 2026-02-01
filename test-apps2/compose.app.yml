@@ -1,0 +1,25 @@
+services:
+  app:
+    image: node:22-bookworm
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+      # 避免把 node_modules 写到宿主机；用 named volume 提升可重复性
+      - node-modules:/workspace/node_modules
+    environment:
+      - NODE_ENV=development
+      # vendor 进来后没有 .git，避免 postinstall/husky 尝试写 hooks（即便有 warning 也不致命）
+      - HUSKY=0
+    ports:
+      - "3000:3000" # Vite dev server
+      - "3001:3001" # Express API
+    command: >-
+      bash -lc '
+        corepack enable;
+        yarn --version;
+        yarn install;
+        yarn start;
+      '
+
+volumes:
+  node-modules:

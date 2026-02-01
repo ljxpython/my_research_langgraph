@@ -1,0 +1,17 @@
+# Prevent accidentally baking local secrets into the image.
+.env
+
+# Local runtime/state files
+.data/
+
+# Local caches
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/

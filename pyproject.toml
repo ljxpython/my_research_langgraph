@@ -25,4 +25,5 @@ dependencies = [
 # Each subproject keeps its own pyproject.toml, but uv sync/run happens from root.
 members = [
     "control_plane",
+    "execution_plane",
 ]

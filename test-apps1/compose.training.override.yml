@@ -1,0 +1,145 @@
+services:
+
+  # Local services are available on their ports.
+  # 这个 training override 的目标：避免和平台默认端口冲突（Control Plane:8000, dev.db:5432）。
+
+  proxy:
+    image: traefik:3.6
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "18080:80"
+      - "18090:8080"
+    command:
+      - --providers.docker
+      - --providers.docker.constraints=Label(`traefik.constraint-label`, `traefik-public`)
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.http.address=:80
+      - --entrypoints.https.address=:443
+      - --accesslog
+      - --log
+      - --log.level=DEBUG
+      - --api
+      - --api.insecure=true
+    labels:
+      - traefik.enable=true
+      - traefik.constraint-label=traefik-public
+      # Dummy middleware for local dev (matches upstream override intent)
+      - traefik.http.middlewares.https-redirect.contenttype.autodetect=false
+    networks:
+      - traefik-public
+      - default
+
+  db:
+    restart: "no"
+    ports:
+      - "15432:5432"
+
+  adminer:
+    restart: "no"
+    ports:
+      - "18081:8080"
+
+  prestart:
+    environment:
+      - FRONTEND_HOST=http://localhost:15173
+      # Playwright 在容器内跑 dev server，origin 会是 http://localhost:5173
+      - BACKEND_CORS_ORIGINS=http://localhost,http://localhost:15173,http://localhost:5173
+
+  backend:
+    restart: "no"
+    ports:
+      - "18000:8000"
+    command:
+      - fastapi
+      - run
+      - --reload
+      - "app/main.py"
+    develop:
+      watch:
+        - path: ./backend
+          action: sync
+          target: /app/backend
+          ignore:
+            - ./backend/.venv
+            - .venv
+        - path: ./backend/pyproject.toml
+          action: rebuild
+    volumes:
+      - ./backend/htmlcov:/app/backend/htmlcov
+    environment:
+      - FRONTEND_HOST=http://localhost:15173
+      # Playwright 在容器内跑 dev server，origin 会是 http://localhost:5173
+      - BACKEND_CORS_ORIGINS=http://localhost,http://localhost:15173,http://localhost:5173
+      - SMTP_HOST=mailcatcher
+      - SMTP_PORT=1025
+      - SMTP_TLS=false
+      - EMAILS_FROM_EMAIL=noreply@example.com
+
+  # ==================== Backend API tests ====================
+  # 上游 backend 镜像默认不包含 ./backend/tests。
+  # 为了让练手者不用安装本机 Python，我们提供一个单独的测试容器：只挂载 tests 目录并执行上游脚本。
+  backend-tests:
+    image: backend:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_SERVER=db
+      - SMTP_HOST=mailcatcher
+      - SMTP_PORT=1025
+      - SMTP_TLS=false
+      - EMAILS_FROM_EMAIL=noreply@example.com
+    volumes:
+      - ./backend/tests:/app/backend/tests:ro
+      - ./backend/htmlcov:/app/backend/htmlcov
+    command:
+      - bash
+      - scripts/tests-start.sh
+
+  mailcatcher:
+    image: schickling/mailcatcher
+    ports:
+      - "11080:1080"
+      - "11025:1025"
+
+  frontend:
+    restart: "no"
+    ports:
+      - "15173:80"
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:18000
+        - NODE_ENV=development
+
+  playwright:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.playwright
+      args:
+        - VITE_API_URL=http://backend:8000
+        - NODE_ENV=production
+    ipc: host
+    depends_on:
+      - backend
+      - mailcatcher
+    env_file:
+      - .env
+    environment:
+      - VITE_API_URL=http://backend:8000
+      - MAILCATCHER_HOST=http://mailcatcher:1080
+      - PLAYWRIGHT_HTML_HOST=0.0.0.0
+      - CI=${CI}
+    volumes:
+      - ./frontend/blob-report:/app/frontend/blob-report
+      - ./frontend/test-results:/app/frontend/test-results
+    ports:
+      - "19323:9323"
+
+networks:
+  traefik-public:
+    external: false

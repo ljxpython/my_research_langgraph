@@ -23,3 +23,11 @@ class SnapshotResponse(BaseModel):
     graphId: str
     messages: list[dict[str, Any]]
     state: dict[str, Any]
+
+
+class ThreadSummary(BaseModel):
+    threadId: str
+    agentId: str
+    busy: bool
+    activeRunId: Optional[str]
+    updatedAt: int

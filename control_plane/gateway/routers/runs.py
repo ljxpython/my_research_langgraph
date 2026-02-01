@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import json
 from typing import Any
 
@@ -8,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
 from gateway.adapters.langgraph_adapter import cancel_run as cancel_execution_run
+from gateway.adapters.langgraph_adapter import get_run as fetch_execution_run
 from gateway.adapters.langgraph_adapter import normalize_snapshot, stream_run
 from gateway.db.engine import SessionLocal
 from gateway.db.models import Run, Thread
@@ -25,6 +27,13 @@ router = APIRouter(prefix="/v1", tags=["runs"])
 def _encode_sse(event: dict[str, Any]) -> str:
     payload = json.dumps(event, ensure_ascii=True, separators=(",", ":"))
     return f"data: {payload}\n\n"
+
+
+def _is_terminal_run_status(status: str) -> bool:
+    s = status.lower().strip()
+    if s in {"running", "pending", "in_progress"}:
+        return False
+    return bool(s)
 
 
 @router.post("/agents/{agent_id}:run")
@@ -45,6 +54,8 @@ def run_agent(
     graph_id: str | None = None
     execution_target_id: str | None = None
 
+    now = datetime.datetime.now(datetime.timezone.utc)
+
     db = SessionLocal()
     try:
         thread = (
@@ -62,16 +73,47 @@ def run_agent(
         execution_target_id = thread.execution_target_id
 
         if thread.active_run_id is not None:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "code": "THREAD_BUSY",
-                    "message": "This thread already has an active run.",
-                    "details": {"threadId": thread.thread_id, "activeRunId": thread.active_run_id},
-                },
-            )
+            # Reconcile stale busy slot (e.g. previous run failed or finished while client disconnected).
+            try:
+                cp_run = get_run(
+                    db,
+                    tenant_id=user.tenant_id,
+                    thread_id=thread.thread_id,
+                    run_id=thread.active_run_id,
+                )
+                if cp_run is not None and isinstance(cp_run.execution_run_id, str) and cp_run.execution_run_id:
+                    ep_run = fetch_execution_run(
+                        thread_id=thread.thread_id,
+                        execution_run_id=cp_run.execution_run_id,
+                        execution_target_id=thread.execution_target_id,
+                    )
+                    ep_status = str(ep_run.get("status", ""))
+                    if _is_terminal_run_status(ep_status):
+                        thread.active_run_id = None
+                        if ep_status.lower() in {"success", "succeeded", "completed"}:
+                            cp_run.status = "succeeded"
+                        elif ep_status.lower() in {"canceled", "cancelled", "interrupted"}:
+                            cp_run.status = "canceled"
+                        else:
+                            cp_run.status = "failed"
+                        db.commit()
+            except Exception:
+                # If reconciliation fails, keep the lock conservative.
+                pass
+
+            if thread.active_run_id is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "code": "THREAD_BUSY",
+                        "message": "This thread already has an active run.",
+                        "details": {"threadId": thread.thread_id, "activeRunId": thread.active_run_id},
+                    },
+                )
 
         thread.active_run_id = cp_run_id
+        # Best-effort: used for sorting/restoring recent threads in the UI.
+        thread.last_activity_at = now
 
         run = Run(
             run_id=cp_run_id,
@@ -112,10 +154,33 @@ def run_agent(
                 )
 
         try:
+            # Execution Plane threads already persist history (checkpoints).
+            # Forward ONLY the latest user message to avoid duplicating history and
+            # to prevent invalid client-provided tool messages (ToolMessage requires tool_call_id).
+            last_user = None
+            for m in reversed(input_data.messages):
+                if isinstance(m.role, str) and m.role.lower().strip() in {"user", "human"}:
+                    last_user = m
+                    break
+
+            # Guardrail: reject/ignore client tool messages to prevent EP crashes.
+            # (ToolMessage requires tool_call_id which we do not accept in Phase-1 schema.)
+            for m in input_data.messages:
+                if isinstance(m.role, str) and m.role.lower().strip() == "tool":
+                    yield _encode_sse(
+                        {
+                            "type": "DEBUG",
+                            "message": "client tool messages are ignored by Control Plane",
+                        }
+                    )
+                    break
+
+            ep_messages = []
+            if last_user is not None:
+                ep_messages = [{"role": "user", "content": last_user.content}]
+
             # Execution Plane graphs typically accept {"messages": [...]}.
-            ep_input = {
-                "messages": [{"role": m.role, "content": m.content} for m in input_data.messages]
-            }
+            ep_input = {"messages": ep_messages}
             command = None
             if isinstance(input_data.forwarded_props, dict):
                 c = input_data.forwarded_props.get("command")
@@ -127,7 +192,10 @@ def run_agent(
                 graph_id=graph_id,
                 input=ep_input,
                 command=command,
-                context=input_data.context,
+                # LangGraph SDK expects `context` to be an object (not an array).
+                # Our public contract keeps `context` as a list for AG-UI compatibility.
+                # Phase-1: we do not forward it to the execution plane.
+                context=None,
                 metadata={"cp_run_id": cp_run_id},
                 on_run_created=on_run_created,
                 execution_target_id=execution_target_id,
@@ -150,6 +218,17 @@ def run_agent(
             # Client disconnected. server-side continue: do NOT clear busy.
             return
         except Exception as e:
+            # Execution-plane / streaming errors MUST clear busy, otherwise the thread can get stuck in THREAD_BUSY.
+            try:
+                mark_run_finished(
+                    tenant_id=user.tenant_id,
+                    thread_id=input_data.thread_id,
+                    run_id=cp_run_id,
+                    status="failed",
+                )
+            except Exception:
+                pass
+
             yield _encode_sse({"type": "RUN_ERROR", "code": "ERROR", "message": str(e)})
             return
 

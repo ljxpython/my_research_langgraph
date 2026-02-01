@@ -1,0 +1,13 @@
+# Ignore cache directory for GitLab builds
+/cache
+
+data
+build
+coverage
+amplify/*
+aws-exports*
+
+# Training docs and local helpers (vendored into this repo)
+TRAINING.md
+UPSTREAM.md
+compose.training.yml

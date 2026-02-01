@@ -37,6 +37,30 @@ def fetch_thread_state(*, thread_id: str, execution_target_id: str | None = None
     return cast(dict[str, Any], state)
 
 
+def ensure_thread_exists(
+    *,
+    thread_id: str,
+    graph_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    execution_target_id: str | None = None,
+) -> None:
+    """Create the thread in the Execution Plane if it doesn't exist.
+
+    We keep Control Plane `threads.thread_id` identical to Execution Plane thread_id
+    in Phase-1 to avoid carrying a separate mapping column.
+
+    `if_exists='do_nothing'` makes this call idempotent.
+    """
+
+    client = get_client(execution_target_id=execution_target_id)
+    client.threads.create(
+        thread_id=thread_id,
+        metadata=metadata or {},
+        graph_id=graph_id,
+        if_exists="do_nothing",
+    )
+
+
 def stream_run(
     *,
     thread_id: str,

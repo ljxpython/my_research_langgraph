@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sqlalchemy.sql import func
 from sqlalchemy import update
 
 from gateway.db.engine import SessionLocal
@@ -31,7 +32,7 @@ def mark_run_finished(*, tenant_id: str, thread_id: str, run_id: str, status: st
         db.execute(
             update(Thread)
             .where(Thread.tenant_id == tenant_id, Thread.thread_id == thread_id, Thread.active_run_id == run_id)
-            .values(active_run_id=None)
+            .values(active_run_id=None, last_activity_at=func.now())
         )
         db.commit()
     finally:

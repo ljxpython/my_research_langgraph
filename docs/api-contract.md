@@ -28,6 +28,21 @@
 
 原则：对前端暴露的协议二选一，避免在同一条链路里同时引入两套协议。
 
+### 常见误解（务必避免）
+
+1) `agent-chat-ui` 能验证平台语义
+
+- 澄清：`agent-chat-ui` 直连的是 Execution Plane（LangGraph Agent Server API）。它只能证明 graph/streaming 可用，不能证明 Control Plane 的鉴权/租户/RBAC、busy(409)、审计、脱敏、配额限流等平台语义正确。
+
+2) AG-UI 与 LangGraph SDK/Agent Server API 可以互换
+
+- 澄清：两者是不同契约。要么对外暴露 LangGraph Agent Server API（给 LangGraph SDK / agent-chat-ui），要么对外暴露 AG-UI SSE（给平台前端/Dojo）。不要指望一个端点同时兼容两套协议。
+
+### 生产安全边界（共识）
+
+- 对终端用户：只暴露 Control Plane（AG-UI）。
+- Execution Plane 不作为对外入口；如需 `agent-chat-ui`，仅限内网/运维通道使用。
+
 ## 2. 核心端点（建议最小集合）
 
 ### 2.0 鉴权端点（Phase-1：简化 login，后续可迁移到 OIDC）

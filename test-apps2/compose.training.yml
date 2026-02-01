@@ -1,0 +1,39 @@
+services:
+  ci:
+    image: cypress/browsers:22.20.0
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+      # 持久化 Cypress binary（避免每次 run 都重新下载）
+      - cypress-cache:/root/.cache/Cypress
+    environment:
+      - CI=1
+      # 这个 repo 被 vendor 进来后没有 .git，避免 postinstall 里的 husky install 失败影响训练
+      - HUSKY=0
+    # 在同一个容器里启动应用并跑 Cypress，保证 localhost 语义成立。
+    command: >-
+      bash -lc '
+        set -euo pipefail;
+
+        corepack enable;
+        yarn --version;
+        yarn install --frozen-lockfile;
+
+        # 确保 Cypress 二进制已下载（避免 node_modules 已缓存但二进制未缓存导致的 not-installed 错误）
+        npx cypress install;
+
+        yarn types;
+        yarn lint;
+        yarn test:unit:ci;
+        yarn build:ci;
+
+        yarn start:ci &
+        npx wait-on http://localhost:3000 --timeout 120000;
+
+        yarn test:api;
+        # 默认 Electron headless 最稳（避免容器内 chrome 探测差异导致失败）
+        yarn cypress:run --spec "cypress/tests/ui/*";
+      '
+
+volumes:
+  cypress-cache:

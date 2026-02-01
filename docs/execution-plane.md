@@ -283,3 +283,17 @@ description: 用于 SQL 分析与结果解释的技能包，适合数据排障�
 - agent 在构建 tools 时从 `shared/mcp/registry.py` 取到工具集合
 
 这样 MCP server 变更只改 registry，不会波及所有 agent。
+
+---
+
+## 9) Roadmap（Phase 1/2/3/4）
+
+本文只描述“执行层如何编排与部署”；执行层的演进规划单独维护在：
+
+- `docs/execution-plane-roadmap.md`
+
+简版摘要：
+- Phase 1：新建 `execution_plane/` 主干，先用 `sql_agent` 跑通（dev: `langgraph dev`；prod: Docker Agent Server）。
+- Phase 2：生产化底座（CP<->EP 服务到服务鉴权、TTL/retention、健康检查与指标）。
+- Phase 3：多 agent/multi-graph 与部署边界（单 EP 多图或多 deployment；worker/queue）。
+- Phase 4：skills/MCP 规范化（可复用能力包 + 风险可控的工具接入）。

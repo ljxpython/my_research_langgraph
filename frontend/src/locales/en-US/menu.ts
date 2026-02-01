@@ -1,6 +1,9 @@
 export default {
   'menu.workbench': 'Workbench',
   'menu.agents': 'Agents',
+  'menu.sql-agent': 'SQL Agent',
+  'menu.sql-agent.chat': 'Chat',
+  'menu.sql-agent.workbench': 'Workbench',
   'menu.platform': 'Platform',
   'menu.platform.projects': 'Projects',
   'menu.platform.environments': 'Environments',

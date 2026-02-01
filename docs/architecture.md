@@ -11,9 +11,8 @@
 - 负责线程状态（thread）、checkpoint、持久化（Redis/Postgres 等）
 - 对外提供事件流（streaming）与线程查询能力
 
-现有 demo 位置：
-- `examples/docker_single/langgraph.json`
-- `examples/docker_single/app/agent.py`
+现有实现位置：
+- `execution_plane/langgraph.json`
 
 ### Control Plane（控制面 / 平台核心）
 

@@ -336,6 +336,22 @@ logs
 **/*.back.*
 
 node_modules
+
+# Next.js
+**/.next/
+**/.turbo/
+
+# ==================== Training SUT artifacts ====================
+# test-apps1 (FastAPI template)
+test-apps1/frontend/test-results/
+test-apps1/frontend/blob-report/
+test-apps1/frontend/playwright-report/
+
+# test-apps2 (Cypress RWA)
+test-apps2/cypress/videos/
+test-apps2/cypress/screenshots/
+test-apps2/coverage/
+test-apps2/.cache/
 bower_components
 
 *.sublime*
@@ -361,6 +377,9 @@ test/
 
 # Local platform runtime data (artifact storage)
 control_plane/.data/
+
+# Local execution plane runtime data
+execution_plane/.data/
 
 # Research scratch / vendored references (explicitly not part of the product)
 tmp/
