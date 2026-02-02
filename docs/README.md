@@ -21,6 +21,7 @@
 - `docs/developer-experience.md`：Developer Experience / 双入口调试（agent-chat-ui 直连执行面 + 平台前端走 Control Plane）
 - `docs/dev-commands.md`：启动脚本/命令约定（Graph 开发 vs 平台联调）
 - `docs/frontend-plan.md`：前端 Phase-1 规划（页面/目录/AG-UI store）
+- `docs/agui-workbench.md`：AG-UI Workbench 正式版设计（模块化 Tabs + 通用入口 + 映射与会话内核）
 - `docs/agui-demo-ui.md`：通用 AG-UI Demo UI 方案（对标 agent-chat-ui / chat.langchain.com）
 - `docs/integration-guardrails.md`：前后端对接保障（shared 的作用与不足、契约测试/Mock/CI 约束）
 - `docs/security-and-secrets.md`：鉴权、密钥、审计与多租户隔离约定

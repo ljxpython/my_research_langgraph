@@ -96,6 +96,11 @@ def get_snapshot(
     if thread is None:
         raise HTTPException(status_code=404, detail="NOT_FOUND")
 
+    # Phase-1: non-admin users can only access their own threads.
+    # This prevents IDOR within a tenant (thread_id is user-controllable input).
+    if not user.is_admin and thread.created_by != user.user_id:
+        raise HTTPException(status_code=404, detail="NOT_FOUND")
+
     # Reconcile busy slot if the execution-plane run already finished.
     if thread.active_run_id:
         cp_run = get_cp_run(db, tenant_id=user.tenant_id, thread_id=thread.thread_id, run_id=thread.active_run_id)

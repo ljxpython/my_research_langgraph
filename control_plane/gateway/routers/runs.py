@@ -66,6 +66,8 @@ def run_agent(
             )
             .scalar_one_or_none()
         )
+        if thread is not None and not user.is_admin and thread.created_by != user.user_id:
+            thread = None
         if thread is None or thread.agent_id != agent_id:
             raise HTTPException(status_code=404, detail="NOT_FOUND")
 
@@ -263,6 +265,8 @@ def cancel_run(
             )
             .scalar_one_or_none()
         )
+        if thread is not None and not user.is_admin and thread.created_by != user.user_id:
+            thread = None
         if thread is None:
             raise HTTPException(status_code=404, detail="NOT_FOUND")
 

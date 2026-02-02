@@ -23,10 +23,21 @@ export default [
     ],
   },
   {
+    path: '/connect',
+    layout: false,
+    component: './connect',
+  },
+  {
     path: '/workbench',
     name: 'workbench',
     icon: 'dashboard',
     component: './workbench',
+  },
+  {
+    path: '/flows/workbench',
+    name: 'flow-workbench',
+    hideInMenu: true,
+    component: './flows/workbench',
   },
   {
     path: '/agents',

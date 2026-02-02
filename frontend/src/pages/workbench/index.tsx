@@ -1,7 +1,8 @@
 import { PageContainer } from '@ant-design/pro-components';
-import { useModel, useRequest } from '@umijs/max';
+import { useLocation, useModel, useRequest } from '@umijs/max';
 import {
   App,
+  Alert,
   Button,
   Card,
   Collapse,
@@ -16,14 +17,27 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import { listAgents } from '@/services/controlPlane/agents';
+import {
+  clearControlPlaneBaseURL,
+  getControlPlaneBaseURL,
+  getSuggestedControlPlaneBaseURL,
+  setControlPlaneBaseURL,
+} from '@/services/controlPlane/config';
+import { getAccessToken } from '@/services/controlPlane/token';
 import type {
   AguiMessage,
   AguiState,
   ControlPlaneAgent,
 } from '@/services/controlPlane/types';
+
+function normalizeBaseURL(raw: string): string {
+  const v = raw.trim();
+  if (!v) return '';
+  return v.endsWith('/') ? v.slice(0, -1) : v;
+}
 
 function formatJson(value: any): string {
   try {
@@ -66,6 +80,13 @@ function parseToolArgs(argText: string): any {
 const WorkbenchPage: React.FC = () => {
   const agui = useModel('agui');
   const { message } = App.useApp();
+  const location = useLocation();
+
+  const token = getAccessToken();
+  const currentBaseURL = getControlPlaneBaseURL();
+  const [baseURLInput, setBaseURLInput] = useState<string>(
+    currentBaseURL || getSuggestedControlPlaneBaseURL(),
+  );
 
   const [restoreThreadId, setRestoreThreadId] = useState<string>('');
   const [composer, setComposer] = useState<string>('');
@@ -79,6 +100,16 @@ const WorkbenchPage: React.FC = () => {
     return await listAgents({ skipErrorHandler: true });
   });
 
+  // Allow deep-linking to an agent after /connect.
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    const agentId = sp.get('agentId') || '';
+    if (agentId && agentId !== agui.selectedAgentId) {
+      agui.setSelectedAgentId(agentId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
+
   const agentOptions = useMemo(() => {
     const agents = (agentsReq.data || []) as ControlPlaneAgent[];
     return agents.map((a) => ({
@@ -86,6 +117,9 @@ const WorkbenchPage: React.FC = () => {
       value: a.agentId,
     }));
   }, [agentsReq.data]);
+
+  const agentsLoadError = agentsReq.error as any;
+  const showAgentLoadError = Boolean(agentsLoadError);
 
   const runStatusTag = useMemo(() => {
     if (agui.busy) {
@@ -245,15 +279,103 @@ const WorkbenchPage: React.FC = () => {
           <Card title="Thread" size="small">
             <Space direction="vertical" style={{ width: '100%' }}>
               <div>
+                <Typography.Text type="secondary">Control Plane URL</Typography.Text>
+                <Input.Search
+                  style={{ marginTop: 4 }}
+                  allowClear
+                  value={baseURLInput}
+                  placeholder="(blank = use /v1 proxy)"
+                  onChange={(e) => setBaseURLInput(e.target.value)}
+                  enterButton="Apply"
+                  onSearch={(v) => {
+                    const next = normalizeBaseURL(String(v || ''));
+                    if (!next) {
+                      clearControlPlaneBaseURL();
+                      message.success('Switched to proxy mode (/v1) — reloading…');
+                      window.location.reload();
+                      return;
+                    }
+                    setControlPlaneBaseURL(next);
+                    message.success('Control Plane URL saved — reloading…');
+                    window.location.reload();
+                  }}
+                />
+                <div style={{ marginTop: 6 }}>
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    Active: {currentBaseURL ? currentBaseURL : 'proxy (/v1)'}
+                  </Typography.Text>
+                </div>
+              </div>
+
+              {!token ? (
+                <Alert
+                  type="warning"
+                  showIcon
+                  message="Not logged in"
+                  description={
+                    <span>
+                      You need a Control Plane token to list agents. Use{' '}
+                      <Typography.Text code>/user/login</Typography.Text> or{' '}
+                      <Typography.Text code>/connect</Typography.Text>.
+                    </span>
+                  }
+                />
+              ) : null}
+
+              {showAgentLoadError ? (
+                <Alert
+                  type="error"
+                  showIcon
+                  message="Failed to load agents"
+                  description={
+                    <span>
+                      Check Control Plane URL/token. You can also type agentId manually.
+                    </span>
+                  }
+                  action={
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                      <Button size="small" onClick={() => agentsReq.refresh()}>
+                        Retry
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          clearControlPlaneBaseURL();
+                          window.location.reload();
+                        }}
+                      >
+                        Use Proxy (/v1)
+                      </Button>
+                    </Space>
+                  }
+                />
+              ) : null}
+
+              <div>
                 <Typography.Text type="secondary">Agent</Typography.Text>
                 <Select
                   style={{ width: '100%', marginTop: 4 }}
                   placeholder="Select an agent"
                   loading={agentsReq.loading}
                   options={agentOptions}
+                  notFoundContent={
+                    agentsReq.loading
+                      ? 'Loading…'
+                      : showAgentLoadError
+                        ? 'Failed to load agents'
+                        : 'No agents'
+                  }
                   value={agui.selectedAgentId || undefined}
                   onChange={(v) => agui.setSelectedAgentId(v)}
                 />
+                {agentOptions.length === 0 ? (
+                  <Input
+                    style={{ marginTop: 8 }}
+                    placeholder="agentId (manual) e.g. sql_agent"
+                    value={agui.selectedAgentId || ''}
+                    onChange={(e) => agui.setSelectedAgentId(e.target.value)}
+                  />
+                ) : null}
               </div>
 
               <Button

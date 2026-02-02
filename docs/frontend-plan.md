@@ -38,6 +38,24 @@
 
 ---
 
+## 补充：两种对话入口（模块化 Tabs vs 通用入口）
+
+我们正式支持两种 UI 入口，但复用同一套 AG-UI 会话内核：
+
+1) 模块页面（Tabs，多分区对话）
+- 一个页面包含多个分区（Tabs），每个分区是一个“对话区域”。
+- 每个分区绑定一个固定的 `agentId`。
+- 分区的 `threadId` 不通过 URL 暴露，而是通过 Control Plane 的映射持久化与恢复：
+  - `(flowInstanceId, sectionKey) -> (agentId, threadId)`
+
+2) 通用入口（“智囊体”）
+- 用户在页面输入 Control Plane Base URL，用账号密码登录，再输入/选择 `agentId` 即可对话。
+- Phase-1：仅支持单个 baseURL（不做多连接配置管理）。
+
+详细设计见：`docs/agui-workbench.md`。
+
+---
+
 ## 2) 推荐目录结构（解耦页面与协议层）
 
 ```
@@ -66,6 +84,8 @@ frontend/
 原因：
 - `models/agui.ts` 是唯一的事件归并入口（events -> messages/tools/state/interrupt/busy）。
 - 页面只做组合与路由，不写协议细节。
+
+补充：为支持“模块 Tabs 多分区对话”（同页多个对话区域），需要将当前 `models/agui.ts` 的能力下沉为“可实例化的 session”（每个分区一个 session），而不是继续只依赖 Umi model 的全局单例。
 
 ---
 

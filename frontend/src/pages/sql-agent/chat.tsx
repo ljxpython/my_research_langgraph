@@ -1,13 +1,11 @@
 import { PageContainer } from '@ant-design/pro-components';
 import { history, useLocation, useModel } from '@umijs/max';
 import {
-  Alert,
   App,
   Button,
   Card,
   Col,
   Input,
-  List,
   Row,
   Space,
   Tag,
@@ -15,7 +13,7 @@ import {
 } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 
-import type { AguiMessage } from '@/services/controlPlane/types';
+import { ChatPane } from '@/features/agui/components/ChatPane';
 
 import { ThreadHistoryDrawer } from './components/thread-history';
 
@@ -35,21 +33,6 @@ function setQueryParam(search: string, key: string, value?: string): string {
   return s ? `?${s}` : '';
 }
 
-function roleToTagColor(role: string): string {
-  switch (role) {
-    case 'user':
-      return 'geekblue';
-    case 'assistant':
-      return 'green';
-    case 'tool':
-      return 'gold';
-    case 'system':
-      return 'default';
-    default:
-      return 'default';
-  }
-}
-
 const SqlAgentChatPage: React.FC = () => {
   const agui = useModel('agui');
   const { message } = App.useApp();
@@ -58,7 +41,6 @@ const SqlAgentChatPage: React.FC = () => {
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const [restoreThreadId, setRestoreThreadId] = useState<string>('');
-  const [composer, setComposer] = useState<string>('');
 
   // Fixed agent for this page.
   useEffect(() => {
@@ -126,27 +108,6 @@ const SqlAgentChatPage: React.FC = () => {
     }
   };
 
-  const onSend = async () => {
-    const text = composer;
-    setComposer('');
-
-    const res = await agui.sendUserMessage(text);
-    if (!res.ok) {
-      switch ((res as any).reason) {
-        case 'BUSY':
-        case 'THREAD_BUSY':
-          message.warning(
-            agui.activeRunId
-              ? `Thread is busy (active run: ${agui.activeRunId}). You can cancel or wait.`
-              : 'Thread is busy (cancel or wait)',
-          );
-          break;
-        default:
-          message.error('Failed to start run');
-      }
-    }
-  };
-
   const onCancel = async () => {
     try {
       await agui.requestCancel();
@@ -155,42 +116,6 @@ const SqlAgentChatPage: React.FC = () => {
       console.log(e);
       message.error('Cancel failed');
     }
-  };
-
-  const renderMessage = (m: AguiMessage) => {
-    const role = m.role || 'unknown';
-    return (
-      <List.Item>
-        <div style={{ width: '100%' }}>
-          <Space size={8} style={{ marginBottom: 4 }} wrap>
-            <Tag color={roleToTagColor(role)}>{role}</Tag>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              {m.id}
-            </Typography.Text>
-          </Space>
-
-          {role === 'tool' ? (
-            <pre
-              style={{
-                margin: 0,
-                padding: 12,
-                background: 'rgba(0,0,0,0.03)',
-                borderRadius: 6,
-                overflowX: 'auto',
-              }}
-            >
-              {m.content}
-            </pre>
-          ) : (
-            <Typography.Paragraph
-              style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}
-            >
-              {m.content}
-            </Typography.Paragraph>
-          )}
-        </div>
-      </List.Item>
-    );
   };
 
   return (
@@ -265,93 +190,7 @@ const SqlAgentChatPage: React.FC = () => {
         </Col>
 
         <Col xs={{ span: 24 }} lg={{ span: 17 }}>
-          <Card
-            title="Chat"
-            size="small"
-            extra={<Space size={8}>{runStatusTag}</Space>}
-          >
-            {!agui.snapshotLoading &&
-            agui.busy &&
-            !agui.streamConnecting &&
-            !agui.firstTokenReceived ? (
-              <Alert
-                style={{ marginBottom: 8 }}
-                type="info"
-                showIcon
-                message="Run in progress"
-                description="This thread is marked busy. If you refreshed the page, the run may still be continuing on the server. You can wait, cancel, or refresh snapshot."
-                action={
-                  <Space size={8}>
-                    <Button
-                      size="small"
-                      onClick={() => agui.loadSnapshot(agui.threadId)}
-                      disabled={!agui.threadId}
-                    >
-                      Refresh
-                    </Button>
-                    <Button
-                      size="small"
-                      danger
-                      onClick={onCancel}
-                      disabled={!agui.threadId || !agui.activeRunId}
-                    >
-                      Cancel
-                    </Button>
-                  </Space>
-                }
-              />
-            ) : null}
-            <div style={{ minHeight: 320, maxHeight: 620, overflow: 'auto' }}>
-              {agui.busy && !agui.firstTokenReceived ? (
-                <Typography.Text type="secondary">
-                  Assistant is thinking...
-                </Typography.Text>
-              ) : null}
-              <List
-                dataSource={agui.messages}
-                loading={agui.snapshotLoading}
-                locale={{ emptyText: 'No messages yet' }}
-                renderItem={renderMessage}
-              />
-            </div>
-
-            <div style={{ marginTop: 12 }}>
-              <Input.TextArea
-                value={composer}
-                onChange={(e) => setComposer(e.target.value)}
-                placeholder={
-                  agui.busy
-                    ? agui.firstTokenReceived
-                      ? 'Run in progress...'
-                      : 'Connecting/Waiting...'
-                    : 'Ask a question about the DB'
-                }
-                autoSize={{ minRows: 2, maxRows: 6 }}
-                disabled={agui.busy || agui.snapshotLoading}
-              />
-              <div
-                style={{
-                  marginTop: 8,
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                }}
-              >
-                <Button
-                  type="primary"
-                  onClick={onSend}
-                  loading={agui.streamConnecting}
-                  disabled={
-                    agui.busy ||
-                    agui.snapshotLoading ||
-                    !agui.threadId ||
-                    agui.selectedAgentId !== SQL_AGENT_ID
-                  }
-                >
-                  Send
-                </Button>
-              </div>
-            </div>
-          </Card>
+          <ChatPane title="Chat" session={agui as any} />
         </Col>
       </Row>
 

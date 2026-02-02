@@ -92,7 +92,7 @@ const RunsPage = () => {
   function makeClientRunId(): string {
     // Keep ASCII-only and stable across retries if user re-submits.
     const rand = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}`;
-    return `crun_${rand.replace(/[^a-zA-Z0-9_\-]/g, '')}`;
+    return `crun_${rand.replace(/[^a-zA-Z0-9_-]/g, '')}`;
   }
 
   return (

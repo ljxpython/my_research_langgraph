@@ -464,7 +464,8 @@ dev.frontend:
 		echo "Missing frontend deps (cross-env not found). Run: make fe.install"; \
 		exit 1; \
 	fi
-	npm --prefix frontend run dev
+	@echo "FE: http://$(FE_HOST):$(FE_PORT) (connect: http://$(FE_HOST):$(FE_PORT)/connect)";
+	PORT=$(FE_PORT) npm --prefix frontend run dev
 
 
 # ==================== Dev - debug UI (agent-chat-ui) ====================

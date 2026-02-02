@@ -23,6 +23,7 @@ from gateway.routers.environments import router as environments_router
 from gateway.routers.platform_runs import router as platform_runs_router
 from gateway.routers.artifacts import router as artifacts_router
 from gateway.routers.audit import router as audit_router
+from gateway.routers.flow_instances import router as flow_instances_router
 
 from gateway.db.engine import session_scope
 from gateway.settings import settings
@@ -104,6 +105,7 @@ def create_app() -> FastAPI:
     app.include_router(platform_runs_router)
     app.include_router(artifacts_router)
     app.include_router(audit_router)
+    app.include_router(flow_instances_router)
     return app
 
 

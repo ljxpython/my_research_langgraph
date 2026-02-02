@@ -94,6 +94,23 @@ export type ControlPlaneCancelRunResponse = {
   status: string;
 };
 
+// ==================== Flow instances (AG-UI workbench mapping) ====================
+
+export type ControlPlaneFlowChatThreadBinding = {
+  agentId: string;
+  threadId: string;
+};
+
+export type ControlPlaneFlowChatThreadsResponse = {
+  flowInstanceId: string;
+  threads: Record<string, ControlPlaneFlowChatThreadBinding>;
+};
+
+export type ControlPlaneUpsertFlowChatThreadRequest = {
+  agentId: string;
+  executionTargetId?: string;
+};
+
 // ==================== Runs（SSE） ====================
 
 export type ControlPlaneRunAgentInput = {

@@ -118,6 +118,53 @@ class Run(Base):
     )
 
 
+# ==================== Flow workbench（flowInstance -> chat threads mapping） ====================
+
+
+class FlowChatThread(Base):
+    """Bind a flow instance section to a chat thread.
+
+    Notes:
+    - A flow instance (flow_instance_id) is a product-level concept; it is not a DB table yet.
+    - We store only the mapping metadata here. Messages/state remain in Execution Plane.
+    """
+
+    __tablename__ = "flow_chat_threads"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+
+    flow_instance_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    section_key: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    agent_id: Mapped[str] = mapped_column(String(128), ForeignKey("agents.agent_id"), nullable=False)
+    thread_id: Mapped[str] = mapped_column(String(64), ForeignKey("threads.thread_id"), nullable=False)
+
+    created_by: Mapped[str] = mapped_column(String(64), ForeignKey("users.id"), index=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index(
+            "ux_flow_chat_threads_tenant_flow_section",
+            "tenant_id",
+            "flow_instance_id",
+            "section_key",
+            unique=True,
+        ),
+        Index(
+            "ix_flow_chat_threads_tenant_flow",
+            "tenant_id",
+            "flow_instance_id",
+        ),
+        Index(
+            "ix_flow_chat_threads_tenant_thread",
+            "tenant_id",
+            "thread_id",
+        ),
+    )
+
+
 class AuditEvent(Base):
     __tablename__ = "audit_events"
 

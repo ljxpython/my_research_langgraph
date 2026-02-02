@@ -1,5 +1,5 @@
 export default {
-  'menu.workbench': '工作台',
+  'menu.workbench': 'AI工作台',
   'menu.agents': 'Agents',
   'menu.sql-agent': 'SQL Agent',
   'menu.sql-agent.chat': '对话',
