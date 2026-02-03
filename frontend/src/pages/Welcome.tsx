@@ -27,7 +27,7 @@ const Welcome: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
             <Typography.Title level={3} style={{ margin: 0, color: token.colorTextHeading }}>
-              欢迎来到测试平台
+              欢迎来到测试管理
             </Typography.Title>
             <Typography.Paragraph style={{ marginTop: 8, marginBottom: 0, color: token.colorTextSecondary }}>
               这里是统一入口：既能用“工作台”与 Agent 对话，也能管理 Project/Environment/Run/Artifact/Audit 等通用能力。
@@ -49,6 +49,12 @@ const Welcome: React.FC = () => {
             </Button>
             <Button onClick={() => history.push('/platform/workbench')}>
               2) 打开工作台
+            </Button>
+            <Button onClick={() => history.push('/db-query/ai')}>
+              智能数据库（AI 查询）
+            </Button>
+            <Button onClick={() => history.push('/db-query/history')}>
+              智能数据库（历史对话）
             </Button>
             <Button onClick={() => history.push('/platform/projects')}>
               3) 项目管理
