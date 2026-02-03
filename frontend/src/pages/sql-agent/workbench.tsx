@@ -16,9 +16,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 import { InspectorPane } from '@/features/agui/components/InspectorPane';
 import { confirmBusySwitch } from '@/features/agui/components/xchat/confirmBusySwitch';
-import { useAguiThreads } from '@/features/agui/components/xchat/useAguiThreads';
 import { XChatPanel } from '@/features/agui/components/xchat/XChatPanel';
-import { XChatThreadList } from '@/features/agui/components/xchat/XChatThreadList';
 import { defaultControlPlaneClient } from '@/features/agui/defaultClient';
 import { useAguiSession } from '@/features/agui/useAguiSession';
 
@@ -83,49 +81,15 @@ const SqlAgentWorkbenchPage: React.FC = () => {
   const location = useLocation();
   const screens = Grid.useBreakpoint();
 
-  const [threadsDrawerOpen, setThreadsDrawerOpen] = useState(false);
   const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
 
   const session = useAguiSession(defaultControlPlaneClient, {
     lockedAgentId: SQL_AGENT_ID,
   });
 
-  const threads = useAguiThreads({ agentId: SQL_AGENT_ID, limit: 100, enabled: true });
-
-  const switchToThread = async (threadId: string) => {
-    const next = String(threadId || '').trim();
-    if (!next) return;
-    if (next === session.threadId) return;
-
-    if (session.busy) {
-      const choice = await confirmBusySwitch({
-        modal,
-        title: '切换 Thread？',
-        description:
-          '当前 run 仍在执行。你可以仅断开连接（run 会在服务端继续），或者先取消 run 再切换。',
-        canCancel: Boolean(session.threadId && session.activeRunId),
-      });
-
-      if (choice === 'stay') return;
-      if (choice === 'cancel') {
-        try {
-          await session.requestCancel();
-          message.success('Cancel requested');
-        } catch (e) {
-          console.log(e);
-          message.error('Cancel failed');
-          return;
-        }
-      }
-    }
-
-    session.stopStream();
-    history.push({
-      pathname: location.pathname,
-      search: setQueryParam(location.search, 'threadId', next),
-    });
-  };
-
+  // If user navigates here with a threadId, treat it as an explicit restore intent.
+  // This prevents accidental "new thread" creation when the snapshot restore fails.
+  const urlThreadId = getQueryParam(location.search, 'threadId');
 
   useEffect(() => {
     // lockedAgentId 已保证 agent 不会被误改写。
@@ -159,13 +123,13 @@ const SqlAgentWorkbenchPage: React.FC = () => {
 
   const onCreateThread = async () => {
     try {
+      // New conversation = new thread.
       const tid = await session.ensureThread();
       history.push({
         pathname: location.pathname,
         search: setQueryParam(location.search, 'threadId', tid),
       });
       message.success(`Thread created: ${tid}`);
-      threads.refresh();
     } catch (e) {
       console.log(e);
       message.error('Failed to create thread');
@@ -175,8 +139,48 @@ const SqlAgentWorkbenchPage: React.FC = () => {
   const drawerWidth = screens.lg ? 520 : '92vw';
   const chatHeaderExtra = (
     <Space size={8} wrap>
-      <Button size="small" onClick={() => setThreadsDrawerOpen(true)}>
-        Threads
+      <Button
+        size="small"
+        onClick={() => {
+          const tid = session.threadId;
+          history.push({
+            pathname: '/db-query/history',
+            search: tid ? setQueryParam('', 'threadId', tid) : '',
+          });
+        }}
+      >
+        历史对话
+      </Button>
+      <Button
+        size="small"
+        type="primary"
+        onClick={async () => {
+          if (session.busy) {
+            const choice = await confirmBusySwitch({
+              modal,
+              title: '新建对话？',
+              description:
+                '当前 run 仍在执行。你可以仅断开连接（run 会在服务端继续），或者先取消 run 再新建对话。',
+              canCancel: Boolean(session.threadId && session.activeRunId),
+            });
+            if (choice === 'stay') return;
+            if (choice === 'cancel') {
+              try {
+                await session.requestCancel();
+                message.success('Cancel requested');
+              } catch (e) {
+                console.log(e);
+                message.error('Cancel failed');
+                return;
+              }
+            }
+          }
+
+          session.stopStream();
+          await onCreateThread();
+        }}
+      >
+        新建对话
       </Button>
       <Button size="small" onClick={() => setDetailsDrawerOpen(true)}>
         Inspector
@@ -186,7 +190,7 @@ const SqlAgentWorkbenchPage: React.FC = () => {
 
   const sqlPanel = (
     <Card title="SQL" size="small">
-      <Space direction="vertical" style={{ width: '100%' }} size={12}>
+      <Space orientation="vertical" style={{ width: '100%' }} size={12}>
         <div>
           <Typography.Text type="secondary">Queries (heuristic)</Typography.Text>
           <div style={{ marginTop: 8 }}>
@@ -229,49 +233,8 @@ const SqlAgentWorkbenchPage: React.FC = () => {
   return (
     <PageContainer>
       <Card title="Chat" size="small" extra={chatHeaderExtra}>
-        <XChatPanel title={undefined} session={session} />
+        <XChatPanel title={undefined} session={session} requireThread={!!urlThreadId} />
       </Card>
-
-      <Drawer
-        title="Threads"
-        open={threadsDrawerOpen}
-        onClose={() => setThreadsDrawerOpen(false)}
-        placement="left"
-        width={drawerWidth}
-        destroyOnClose
-      >
-        <Card title="Thread" size="small">
-          <Space direction="vertical" style={{ width: '100%' }} size={12}>
-            <div>
-              <Typography.Text type="secondary">agentId</Typography.Text>
-              <div style={{ marginTop: 6 }}>
-                <Typography.Text code>{SQL_AGENT_ID}</Typography.Text>
-              </div>
-            </div>
-
-            <XChatThreadList
-              threads={threads.threads}
-              loading={threads.loading}
-              activeKey={session.threadId || undefined}
-              onRefresh={() => threads.refresh()}
-              onNewThread={async () => {
-                await onCreateThread();
-                setThreadsDrawerOpen(false);
-              }}
-              onRestoreThread={async (tid) => {
-                await switchToThread(tid);
-                setThreadsDrawerOpen(false);
-              }}
-              onActiveChange={(tid) => {
-                void (async () => {
-                  await switchToThread(tid);
-                  setThreadsDrawerOpen(false);
-                })();
-              }}
-            />
-          </Space>
-        </Card>
-      </Drawer>
 
       <Drawer
         title="Inspector"

@@ -18,6 +18,9 @@ export function XChatThreadList(props: {
   activeKey?: string;
   onActiveChange?: (threadId: string) => void;
 
+  // Customize how each thread is displayed.
+  getThreadLabel?: (thread: ControlPlaneThreadSummary) => React.ReactNode;
+
   // Optional actions
   onRefresh?: () => void;
   onNewThread?: () => Promise<void>;
@@ -26,6 +29,10 @@ export function XChatThreadList(props: {
   // UX
   disableNew?: boolean;
   disableSelect?: boolean;
+
+  // By default we sort by updatedAt desc. Some callers want to handle ordering
+  // (e.g. pagination slicing) and expect the component to preserve input order.
+  sortThreads?: boolean;
 }) {
   const {
     title,
@@ -33,37 +40,46 @@ export function XChatThreadList(props: {
     loading,
     activeKey,
     onActiveChange,
+    getThreadLabel,
     onRefresh,
     onNewThread,
     onRestoreThread,
     disableNew,
     disableSelect,
+    sortThreads,
   } = props;
 
   const [restoreInput, setRestoreInput] = React.useState('');
   const [creating, setCreating] = React.useState(false);
 
   const items: ConversationItemType[] = React.useMemo(() => {
-    return threads
-      .slice()
-      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    const base = sortThreads === false
+      ? threads
+      : threads.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+    return base
       .map((t) => {
         const disabled = !!disableSelect;
+
+        const label = getThreadLabel
+          ? getThreadLabel(t)
+          : (
+              <Space key={t.threadId} size={8} wrap>
+                {t.busy ? <Tag color="processing">Busy</Tag> : <Tag>Idle</Tag>}
+                <Typography.Text style={{ fontSize: 13 }}>{shortThreadId(t.threadId)}</Typography.Text>
+              </Space>
+            );
+
         return {
           key: t.threadId,
           disabled,
-          label: (
-            <Space size={8} wrap>
-              {t.busy ? <Tag color="processing">Busy</Tag> : <Tag>Idle</Tag>}
-              <Typography.Text style={{ fontSize: 13 }}>{shortThreadId(t.threadId)}</Typography.Text>
-            </Space>
-          ),
+          label,
         };
       });
-  }, [disableSelect, threads]);
+  }, [disableSelect, getThreadLabel, sortThreads, threads]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
         <Typography.Text strong>{title || 'Threads'}</Typography.Text>
         {onRefresh ? (

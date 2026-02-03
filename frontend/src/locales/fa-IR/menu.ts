@@ -1,5 +1,8 @@
 export default {
   'menu.welcome': 'خوش آمدید',
+  'menu.db-query': 'پایگاه داده هوشمند',
+  'menu.db-query.ai': 'پرس وجوی هوش مصنوعی',
+  'menu.db-query.history': 'تاریخچه',
   'menu.more-blocks': 'بلوک های بیشتر',
   'menu.home': 'خانه',
   'menu.admin': 'مدیر',

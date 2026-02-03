@@ -109,8 +109,9 @@ export function XChatPanel(props: {
   session: AguiSessionLike;
   requireThread?: boolean;
   height?: number;
+  readonly?: boolean;
 }) {
-  const { title, session, requireThread, height = 520 } = props;
+  const { title, session, requireThread, height = 520, readonly } = props;
   const { message } = App.useApp();
   const { token } = theme.useToken();
 
@@ -236,7 +237,8 @@ export function XChatPanel(props: {
     session.snapshotLoading ||
     session.busy ||
     !session.selectedAgentId ||
-    (!!requireThread && !session.threadId);
+    (!!requireThread && !session.threadId) ||
+    !!readonly;
 
   const onSubmit = async () => {
     const text = composer;
@@ -278,7 +280,7 @@ export function XChatPanel(props: {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
         <Space size={10} wrap>
           {title ? <Typography.Text strong>{title}</Typography.Text> : null}
-          {runStatusTag(session)}
+          {!readonly ? runStatusTag(session) : <Tag>Read-only</Tag>}
           {session.activeRunId ? (
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               run={session.activeRunId}
@@ -341,23 +343,25 @@ export function XChatPanel(props: {
         <Bubble.List ref={setListRef} items={bubbleItems} role={role} autoScroll={false} style={{ height: '100%' }} />
       </div>
 
-      <Sender
-        value={composer}
-        onChange={(v) => setComposer(v)}
-        placeholder={
-          session.busy
-            ? session.firstTokenReceived
-              ? 'Run in progress...'
-              : 'Connecting/Waiting...'
-            : 'Type a message'
-        }
-        autoSize={{ minRows: 2, maxRows: 8 }}
-        submitType="enter"
-        disabled={senderDisabled}
-        loading={session.busy}
-        onSubmit={() => onSubmit()}
-        onCancel={() => onCancel()}
-      />
+      {!readonly ? (
+        <Sender
+          value={composer}
+          onChange={(v) => setComposer(v)}
+          placeholder={
+            session.busy
+              ? session.firstTokenReceived
+                ? 'Run in progress...'
+                : 'Connecting/Waiting...'
+              : 'Type a message'
+          }
+          autoSize={{ minRows: 2, maxRows: 8 }}
+          submitType="enter"
+          disabled={senderDisabled}
+          loading={session.busy}
+          onSubmit={() => onSubmit()}
+          onCancel={() => onCancel()}
+        />
+      ) : null}
     </div>
   );
 }

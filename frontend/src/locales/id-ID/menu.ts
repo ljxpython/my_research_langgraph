@@ -1,5 +1,8 @@
 export default {
   'menu.welcome': 'Selamat Datang',
+  'menu.db-query': 'Database Cerdas',
+  'menu.db-query.ai': 'Kueri AI',
+  'menu.db-query.history': 'Riwayat',
   'menu.more-blocks': 'Blocks Lainnya',
   'menu.home': 'Halaman Awal',
   'menu.admin': 'Admin',

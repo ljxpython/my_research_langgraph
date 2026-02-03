@@ -1,5 +1,8 @@
 export default {
   'menu.welcome': 'স্বাগতম',
+  'menu.db-query': 'স্মার্ট ডাটাবেস',
+  'menu.db-query.ai': 'AI কুয়েরি',
+  'menu.db-query.history': 'ইতিহাস',
   'menu.more-blocks': 'আরও ব্লক',
   'menu.home': 'নীড়',
   'menu.admin': 'অ্যাডমিন',

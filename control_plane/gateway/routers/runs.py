@@ -336,7 +336,8 @@ def run_agent(
 
                 # 2) Snapshot-based reconciliation/state panels
                 if event_name in {"values", "updates"}:
-                    if not isinstance(data, dict):
+                    # Some graphs emit `values` as a list (e.g. a bare messages list).
+                    if not isinstance(data, (dict, list)):
                         continue
 
                     messages, state = normalize_snapshot(langgraph_state={"values": data})

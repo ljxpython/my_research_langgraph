@@ -1,5 +1,8 @@
 export default {
   'menu.welcome': 'Welcome',
+  'menu.db-query': 'Banco Inteligente',
+  'menu.db-query.ai': 'Consulta IA',
+  'menu.db-query.history': 'Historico',
   'menu.more-blocks': 'More Blocks',
   'menu.home': 'Início',
   'menu.admin': 'Admin',

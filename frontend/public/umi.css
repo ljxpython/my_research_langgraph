@@ -1,0 +1,7 @@
+/*
+ * Dev-time compatibility stylesheet.
+ *
+ * Some dev server setups (or hot-reload edge cases) may request `/umi.css`.
+ * If the file doesn't exist, the server can fall back to returning index.html,
+ * which triggers a strict MIME error in the browser console.
+ */

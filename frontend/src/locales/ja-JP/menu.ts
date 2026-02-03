@@ -1,5 +1,8 @@
 export default {
   'menu.welcome': 'ようこそ',
+  'menu.db-query': 'スマートDB',
+  'menu.db-query.ai': 'AI クエリ',
+  'menu.db-query.history': '履歴',
   'menu.more-blocks': 'その他のブロック',
   'menu.home': 'ホーム',
   'menu.admin': '管理者',

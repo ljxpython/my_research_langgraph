@@ -1,5 +1,8 @@
 export default {
   'menu.welcome': '歡迎',
+  'menu.db-query': '智能資料庫',
+  'menu.db-query.ai': 'AI 查詢',
+  'menu.db-query.history': '歷史對話',
   'menu.more-blocks': '更多區塊',
   'menu.home': '首頁',
   'menu.admin': '权限',

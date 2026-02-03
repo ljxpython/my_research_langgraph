@@ -1,4 +1,3 @@
-import { useRequest } from '@umijs/max';
 import * as React from 'react';
 
 import { listThreads } from '@/services/controlPlane/threads';
@@ -11,28 +10,46 @@ export function useAguiThreads(params: {
 }) {
   const { agentId, limit = 100, enabled = true } = params;
 
-  const req = useRequest(
-    async () => {
-      return await listThreads(
+  const [threads, setThreads] = React.useState<ControlPlaneThreadSummary[]>([]);
+  const [loading, setLoading] = React.useState<boolean>(false);
+  const [error, setError] = React.useState<any>(undefined);
+
+  const refresh = React.useCallback(async () => {
+    if (!enabled) return;
+    setLoading(true);
+    setError(undefined);
+    try {
+      const raw = (await listThreads(
         { agentId: agentId || undefined, limit },
         { skipErrorHandler: true },
-      );
-    },
-    {
-      refreshDeps: [agentId, limit],
-      ready: enabled,
-    },
-  );
+      )) as any;
 
-  const threads = React.useMemo(() => {
-    const raw = (req.data || []) as any;
-    return Array.isArray(raw) ? (raw as ControlPlaneThreadSummary[]) : [];
-  }, [req.data]);
+      // Some setups wrap responses in { data: [...] } (Ant Design Pro demo shape).
+      const candidate =
+        Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.data)
+            ? raw.data
+            : Array.isArray(raw?.data?.data)
+              ? raw.data.data
+              : [];
+      setThreads(candidate as ControlPlaneThreadSummary[]);
+    } catch (e) {
+      setError(e);
+      setThreads([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [agentId, enabled, limit]);
+
+  React.useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   return {
     threads,
-    loading: req.loading,
-    error: req.error,
-    refresh: () => req.refresh(),
+    loading,
+    error,
+    refresh,
   };
 }

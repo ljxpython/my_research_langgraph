@@ -33,6 +33,28 @@ export default [
     icon: 'smile',
     component: './Welcome',
   },
+  // ==================== 智能数据库 ====================
+  {
+    path: '/db-query',
+    name: 'db-query',
+    icon: 'database',
+    routes: [
+      {
+        path: '/db-query/ai',
+        name: 'ai',
+        component: './db-query/ai',
+      },
+      {
+        path: '/db-query/history',
+        name: 'history',
+        component: './db-query/history',
+      },
+      {
+        path: '/db-query',
+        redirect: '/db-query/ai',
+      },
+    ],
+  },
   // Backward-compatible aliases (menu lives under /platform/*)
   {
     path: '/workbench',
@@ -49,6 +71,23 @@ export default [
     name: 'flow-workbench',
     hideInMenu: true,
     component: './flows/workbench',
+  },
+  // Backward-compatible aliases for the old SQL Agent pages.
+  {
+    path: '/sql-agent/workbench',
+    hideInMenu: true,
+    redirect: '/db-query/ai',
+  },
+  {
+    path: '/sql-agent/chat',
+    hideInMenu: true,
+    redirect: '/db-query/ai',
+  },
+  // Backward-compatible alias for the old platform DB entry.
+  {
+    path: '/platform/db-query',
+    hideInMenu: true,
+    redirect: '/db-query/ai',
   },
   {
     path: '/platform',

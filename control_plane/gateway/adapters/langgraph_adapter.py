@@ -37,6 +37,56 @@ def fetch_thread_state(*, thread_id: str, execution_target_id: str | None = None
     return cast(dict[str, Any], state)
 
 
+def fetch_thread_history(
+    *,
+    thread_id: str,
+    limit: int = 50,
+    execution_target_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch thread state history from the Execution Plane.
+
+    Note: Some graph/agent shapes don't expose full messages via `get_state()`.
+    `get_history()` provides more robust access to message history.
+    """
+
+    client = get_client(execution_target_id=execution_target_id)
+    history = getattr(client.threads, "get_history")(thread_id=thread_id, limit=limit)
+    out: list[dict[str, Any]] = []
+    for s in history or []:
+        if isinstance(s, Mapping) and not isinstance(s, dict):
+            s = dict(s)
+        elif not isinstance(s, dict) and hasattr(s, "model_dump"):
+            s = s.model_dump()  # type: ignore[attr-defined]
+        if isinstance(s, dict):
+            out.append(cast(dict[str, Any], s))
+    return out
+
+
+def search_threads(
+    *,
+    metadata: dict[str, Any],
+    limit: int = 50,
+    execution_target_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Search threads in the Execution Plane.
+
+    We keep this adapter tiny and return plain dicts to make callers independent
+    of langgraph-sdk model types.
+    """
+
+    client = get_client(execution_target_id=execution_target_id)
+    threads = getattr(client.threads, "search")(metadata=metadata, limit=limit)
+    out: list[dict[str, Any]] = []
+    for t in threads or []:
+        if isinstance(t, Mapping) and not isinstance(t, dict):
+            t = dict(t)
+        elif not isinstance(t, dict) and hasattr(t, "model_dump"):
+            t = t.model_dump()  # type: ignore[attr-defined]
+        if isinstance(t, dict):
+            out.append(cast(dict[str, Any], t))
+    return out
+
+
 def ensure_thread_exists(
     *,
     thread_id: str,
@@ -119,25 +169,38 @@ def normalize_snapshot(*, langgraph_state: dict[str, Any]) -> tuple[list[dict[st
     """
 
     values = langgraph_state.get("values")
-    if not isinstance(values, dict):
-        values = {}
 
-    raw_messages = values.get("messages")
-    if not isinstance(raw_messages, list):
+    # LangGraph thread state has historically been either:
+    # - values: { messages: [...] , ui/app/debug: {...} }
+    # - values: [ ...messages... ]  (some agent/graph shapes emit message list as the whole values)
+    raw_messages: list[Any]
+    values_dict: dict[str, Any] | None = None
+    if isinstance(values, dict):
+        values_dict = values
+        maybe_messages = values_dict.get("messages")
+        raw_messages = maybe_messages if isinstance(maybe_messages, list) else []
+    elif isinstance(values, list):
+        raw_messages = values
+    else:
         raw_messages = []
 
     messages = _normalize_messages(raw_messages)
 
     # Build namespaced state; prefer values.ui/app/debug if present.
     state: dict[str, Any] = {"ui": {}, "app": {}, "debug": {}}
-    for ns in ("ui", "app", "debug"):
-        v = values.get(ns)
-        if isinstance(v, dict):
-            state[ns] = v
+    if values_dict is not None:
+        for ns in ("ui", "app", "debug"):
+            v = values_dict.get(ns)
+            if isinstance(v, dict):
+                state[ns] = v
 
     # Include raw LangGraph metadata (without messages) under debug.langgraph for troubleshooting.
-    sanitized_values = dict(values)
-    sanitized_values.pop("messages", None)
+    if values_dict is not None:
+        sanitized_values: Any = dict(values_dict)
+        sanitized_values.pop("messages", None)
+    else:
+        sanitized_values = values
+
     state["debug"].setdefault(
         "langgraph",
         {

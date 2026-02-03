@@ -106,7 +106,17 @@ const WorkbenchPage: React.FC = () => {
       }
     }
 
+    // 线程切换的核心是 snapshot；只改 URL 容易出现“点了但没加载”的 UX。
+    // 这里先加载 snapshot，成功后再写回 URL 作为 deep-link。
     agui.stopStream();
+    try {
+      await agui.loadSnapshot(next);
+      message.success('Snapshot loaded');
+    } catch (e) {
+      console.log(e);
+      message.error('Failed to load snapshot');
+      return;
+    }
     history.push({
       pathname: location.pathname,
       search: setQueryParam(location.search, 'threadId', next),

@@ -74,7 +74,16 @@ const SqlAgentChatPage: React.FC = () => {
       }
     }
 
+    // Load snapshot first so clicking a thread immediately shows history.
     session.stopStream();
+    try {
+      await session.loadSnapshot(next);
+      message.success('Snapshot loaded');
+    } catch (e) {
+      console.log(e);
+      message.error('Failed to load snapshot');
+      return;
+    }
     history.push({
       pathname: location.pathname,
       search: setQueryParam(location.search, 'threadId', next),

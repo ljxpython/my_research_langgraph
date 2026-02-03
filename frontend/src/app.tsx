@@ -159,18 +159,22 @@ export const layout: RunTimeLayoutConfig = ({
  */
 export const request: RequestConfig = {
   ...errorConfig,
-  baseURL: getControlPlaneBaseURL(),
   requestInterceptors: [
     (config: RequestOptions) => {
+      // baseURL can be configured at runtime via /connect (stored in localStorage).
+      // Umi request config is initialized once at app bootstrap, so we must refresh it per request.
+      const dynamicBaseURL = getControlPlaneBaseURL();
+      const nextConfig: RequestOptions = dynamicBaseURL ? { ...config, baseURL: dynamicBaseURL } : config;
+
       const token = getAccessToken();
-      if (!token) return config;
+      if (!token) return nextConfig;
 
       // 只在一个地方统一注入 Bearer Token
       const headers = {
-        ...(config.headers || {}),
+        ...(nextConfig.headers || {}),
         Authorization: `Bearer ${token}`,
       };
-      return { ...config, headers };
+      return { ...nextConfig, headers };
     },
   ],
   responseInterceptors: [
