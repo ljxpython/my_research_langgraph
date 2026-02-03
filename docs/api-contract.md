@@ -48,7 +48,7 @@
 ### 2.0 鉴权端点（Phase-1：简化 login，后续可迁移到 OIDC）
 
 说明：
-- Phase-1 你们选择“简化 login”，用于内部测试平台快速落地。
+- Phase-1 你们选择“简化 login”，用于内部测试管理快速落地。
 - Phase-2 迁移到企业 OIDC/SSO 时，业务 API 调用方式保持不变（仍然是 Bearer token）。
 
 #### 2.0.1 登录

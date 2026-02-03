@@ -81,7 +81,7 @@
 - 菜单树/按钮权限怎么建模
 - 登录态/会话/续期怎么做
 
-它们能帮助你们快速确定 Control Plane 的元数据模型（agents/threads/runs/audit 之外的 admin 领域模型），尤其适合测试平台中台。
+它们能帮助你们快速确定 Control Plane 的元数据模型（agents/threads/runs/audit 之外的 admin 领域模型），尤其适合测试管理中台。
 
 注意：不少“成品后台”会绑定特定 ORM（Tortoise/Django/Go），建议你们 **抄 schema 与交互语义**，不要直接抄 ORM 代码。
 
@@ -116,9 +116,9 @@
 - fastapi-jwt-auth 提供 refresh token 形态，但依赖约束偏老（PyJWT < 2.0），更建议“借鉴接口语义”，不要强依赖。
   - https://github.com/IndominusByte/fastapi-jwt-auth
 
-## 5. 我建议你们最终选择的权限路线（与测试平台匹配）
+## 5. 我建议你们最终选择的权限路线（与测试管理匹配）
 
-Phase-1（测试平台框架）：
+Phase-1（测试管理框架）：
 - 先做最小 RBAC（admin/user）+ tenant 资源隔离（防 IDOR）
 - 先不做“菜单/按钮权限”的复杂体系（交给 AntD Pro 前端路由与后端简单权限即可）
 

@@ -10,7 +10,7 @@
 
 实现状态（已落地）：
 - 前端对话 UI 已统一采用 Ant Design X（`@ant-design/x`）：`Conversations + Bubble.List + Sender`
-- 覆盖页面：`/workbench`、`/sql-agent/chat`、`/sql-agent/workbench`、`/flows/workbench`
+- 覆盖页面：`/workbench`（alias -> `/platform/workbench`）、`/platform/workbench`、`/platform/db-query`（sql_agent）、`/flows/workbench`
 - 复用的组件与适配层：
   - `frontend/src/features/agui/components/xchat/XChatPanel.tsx`：消息区（Bubble.List）+ 输入框（Sender）
   - `frontend/src/features/agui/components/xchat/XChatThreadList.tsx`：线程列表（Conversations）

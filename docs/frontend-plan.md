@@ -1,6 +1,6 @@
 # 前端 Phase-1 规划（AntD Pro 中台壳 + AG-UI Workbench）
 
-目标：让平台“像一个中台测试平台”，并且与 Control Plane 契约严格对齐。
+目标：让平台“像一个中台测试管理”，并且与 Control Plane 契约严格对齐。
 
 前提（已敲定）：
 - 前端协议：只使用 AG-UI v1

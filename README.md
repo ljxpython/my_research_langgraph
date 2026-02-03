@@ -1,4 +1,4 @@
-# 通用测试平台模板（Control Plane + Frontend）
+# 通用测试管理模板（Control Plane + Frontend）
 
 这个仓库的定位：提供一个“可复用的测试开发平台骨架（Template）”。
 
@@ -122,7 +122,7 @@ make dev.frontend
 `docs/README.md` 是技术文档索引，建议阅读顺序：
 
 1) `docs/architecture.md`：总体架构、边界与落地路线（双 Plane / 契约优先）
-2) `docs/platform/README.md`：通用测试平台文档集（产品能力与对象模型）
+2) `docs/platform/README.md`：通用测试管理文档集（产品能力与对象模型）
 3) `docs/control-plane.md`：Control Plane（FastAPI Gateway）设计与语义
 4) `docs/api-contract.md` + `docs/frontend-contract.md`：前后端契约（AG-UI / SSE / errors）
 5) `docs/dev-commands.md`：本地开发与联调命令（与 Makefile 对齐）
