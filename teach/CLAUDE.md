@@ -17,6 +17,15 @@ teach/
     07-sql-agent-demo.md        真实调用 demo（复用 SQL agent）
     demo_min_server/            最小 demo 代码（FastAPI + SSE）
     demo_sql_agent/             真实 demo 代码（SQL agent + LLM）
+  langgraph_knowlege/
+    README.md                   LangGraph/LangChain 知识库入口（本仓库实践向）
+    01-dynamic-model-switching.md  运行时动态切换模型（execution_plane + CP + UI）
+  langserve/
+    README.md                   LangServe 教程入口（动手向）
+    01-quickstart.md             Quickstart：最小 runnable -> HTTP API
+    02-invoke-stream-playground.md invoke/stream/playground 怎么调
+    03-configurable-model-switch.md 运行时切模型/参数（configurable）
+    demo_min_server/             可运行 demo（FastAPI + langserve.add_routes）
 ```
 
 约定：
