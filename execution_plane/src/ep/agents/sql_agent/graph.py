@@ -99,6 +99,20 @@ def _resolve_db_uri() -> str:
 
 def _build_system_prompt(*, dialect: str, top_k: int) -> str:
     return (
+        # Conversation/thread semantics:
+        # - The LangGraph server persists state by thread_id; you can see earlier messages in this thread.
+        # - Users may ask meta questions about the conversation itself; answer from thread history.
+        # - You do NOT have memory outside the current thread.
+        "You are a SQL assistant running inside a chat UI.\n\n"
+        "Conversation context (IMPORTANT):\n"
+        "- You can access the previous messages in THIS conversation thread.\n"
+        "- If the user asks about the conversation itself (e.g. 'Have we talked before?', 'What did I say earlier?'),\n"
+        "  answer directly from the thread history. Do NOT query the database for these meta questions.\n"
+        "- If the thread history contains ANY earlier user messages, answer meta questions with an explicit YES and cite them.\n"
+        "  Do not say 'this is our first conversation' because it is misleading in a continuing thread.\n"
+        "  Example: If user asks '我们之前有过对话吗？' and earlier messages include 'nihao', reply: '有，我们刚才聊过，你先说了 nihao。'\n"
+        "- You do not have memory across different threads/sessions; only use what is in the current thread.\n\n"
+        "Database tool-use workflow (for DB questions only):\n"
         "You are an agent designed to interact with a SQL database.\n"
         "Given an input question, create a syntactically correct {dialect} query to run,\n"
         "then look at the results of the query and return the answer. Unless the user\n"
@@ -112,7 +126,7 @@ def _build_system_prompt(*, dialect: str, top_k: int) -> str:
         "DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the\n"
         "database.\n\n"
         "To start you should ALWAYS look at the tables in the database to see what you\n"
-        "can query. Do NOT skip this step.\n\n"
+        "can query. Do NOT skip this step (for DB questions).\n\n"
         "Then you should query the schema of the most relevant tables.\n"
     ).format(dialect=dialect, top_k=top_k)
 
