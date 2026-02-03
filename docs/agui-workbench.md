@@ -2,7 +2,29 @@
 
 本文目标：把 `examples/agui-chat-ui` 的能力“正式纳入”平台前端（`frontend/`，Ant Design Pro / Umi Max），并支持未来大量 agent/业务模块复用同一套对话内核。
 
-范围说明：本文只做设计与契约冻结，不涉及实现细节与代码落地。
+范围说明：本文以“设计冻结点”为主，同时记录当前已落地的实现（避免设计文档与代码脱节）。
+
+架构选型备注：
+- 当前平台主路线仍是“Execution Plane 使用 LangGraph 官方 Agent Server + Control Plane 输出 AG-UI v1”。
+- 若未来需要自建执行面并复刻 LangGraph API（B2），对应成本与改造清单见：`docs/execution-plane-b2-fallback.md`（备用方案，不作为当前实现前提）。
+
+实现状态（已落地）：
+- 前端对话 UI 已统一采用 Ant Design X（`@ant-design/x`）：`Conversations + Bubble.List + Sender`
+- 覆盖页面：`/workbench`、`/sql-agent/chat`、`/sql-agent/workbench`、`/flows/workbench`
+- 复用的组件与适配层：
+  - `frontend/src/features/agui/components/xchat/XChatPanel.tsx`：消息区（Bubble.List）+ 输入框（Sender）
+  - `frontend/src/features/agui/components/xchat/XChatThreadList.tsx`：线程列表（Conversations）
+  - `frontend/src/features/agui/components/xchat/confirmBusySwitch.tsx`：busy 场景的切换确认（断连/取消/留在当前）
+  - `frontend/src/features/agui/components/xchat/useAguiThreads.ts`：threads 数据源 hook（`GET /v1/threads`）
+  - `frontend/src/features/agui/defaultClient.ts`：Control Plane client 默认实现（createThread/snapshot/cancel/run stream）
+
+实现状态（仍待做 / 可选增强）：
+- Flow 模块页（Tabs）目前每个分区只有“绑定的单 thread”，尚不支持在 UI 上新建/切换到另一个 thread（原因：后端映射 API 只提供 upsert，未提供 rebind/new thread 语义）。
+- 页面信息架构已调整为“Chat-only”：Threads/Inspector 默认通过 Drawer 隐藏。若后续要进一步减少信息噪音，可把 Control Plane URL/agentId 也从 Threads Drawer 中继续下沉到 /connect（对 workbench 只保留最小入口）。
+- 已移除全局水印（ProLayout `waterMarkProps` 置空），避免截图/录屏干扰。
+- Like/Dislike 反馈目前仅停留在前端内存态；如果要沉淀为产品能力，需要定义后端存储与审计语义（例如：以 threadId+messageId 为键写入 run artifact 或 audit log）。
+- 若需要更强表达能力：可再评估 `@ant-design/x-markdown`（代码块/表格/mermaid）；当前刻意不引入，避免把“渲染”变成新的复杂度源。
+- 自动滚动策略已做“near-bottom 才自动滚”，但仍可继续抛光：例如 unread 计数、Jump to latest 的更强存在感、或按用户滚动意图更精细判断。
 
 ---
 
@@ -46,19 +68,24 @@
 - 模块页面的每个分区如果用不同 agent，则必须使用不同 thread。
 - 不能“同一 thread 切 agent”。
 
-### 2.2 当前 SSE 是“快照流”（snapshot-based），不是 token 增量流
+### 2.2 当前 SSE 同时支持“真流式文本”与“快照对齐”
 
-Control Plane 的 run SSE 目前主要发送：
-- `RUN_STARTED`
-- `MESSAGES_SNAPSHOT`
-- `STATE_SNAPSHOT`
-- `RUN_FINISHED` / `RUN_ERROR`
+Control Plane 的 run SSE 现在会同时发送两类事件：
 
-因此 UI 体验策略应是：
-- 展示 `Connecting/Waiting/Running`，并在 snapshot 到达时更新消息与状态。
-- 不依赖 `TEXT_MESSAGE_*` 逐 token 打字。
+- **真流式文本（推荐 UX）**：
+  - `TEXT_MESSAGE_START`
+  - `TEXT_MESSAGE_CONTENT`（delta）
+  - `TEXT_MESSAGE_END`
 
-备注：`docs/frontend-contract.md` 定义了更完整的事件集（包含 `TEXT_MESSAGE_*`）。本文视其为“未来可扩展”，但不作为当前前端体验的硬依赖。
+- **快照对齐（reconcile / 断线恢复 / 状态面板）**：
+  - `MESSAGES_SNAPSHOT`
+  - `STATE_SNAPSHOT`
+
+依赖说明：
+- 真流式文本需要 Execution Plane（LangGraph + LLM）在 `stream_mode=events` 下产生 `on_chat_model_stream` 事件，并且 LLM 开启 streaming。
+- 如果执行面无法产生增量事件，前端会自动退化为仅依赖 snapshot（看起来像“一次性更新”）。
+
+细节契约见：`docs/frontend-contract.md`（`TEXT_MESSAGE_*` / `MESSAGES_SNAPSHOT` / `STATE_SNAPSHOT`）。
 
 ---
 
@@ -218,15 +245,69 @@ Phase-1（冻结）：
 
 推荐两档选型：
 
-### 方案 A（推荐）：引入 Ant Design X（@ant-design/x）
+### 方案 A（已采用）：引入 Ant Design X（@ant-design/x）
 
 理由：这是 Ant Design 官方的 AI 交互组件库；`@ant-design/pro-chat` 已 deprecated，新项目推荐使用 `@ant-design/x`。
+
+落地说明：
+- 线程列表：`Conversations`（见 `frontend/src/features/agui/components/xchat/XChatThreadList.tsx`）
+- 对话区：`Bubble.List` + `Sender`（见 `frontend/src/features/agui/components/xchat/XChatPanel.tsx`）
+- 线程数据源：`GET /v1/threads`（见 `frontend/src/features/agui/components/xchat/useAguiThreads.ts`）
+- Flow 模块页（Tabs）目前每个分区只绑定一个 thread：
+  - UI 上仍使用 `Conversations` 展示“当前 thread”，但 **New/切换被禁用**（原因：后端映射 API 不支持 rebind/new thread）
 
 推荐组件：
 - `Bubble.List`：聊天消息列表（气泡/角色样式/autoScroll/streaming 状态）
 - `Sender`：输入框（更像 chat 产品；可扩展 header/actions）
 - `Conversations`：会话/线程列表（非常适合通用入口）
 - `Actions`：消息操作（copy/feedback 等）
+
+当前实现范围（刻意克制）：
+- 已用：`Conversations` / `Bubble.List` / `Sender`
+- 已用（A1）：`Actions`（copy / feedback）
+- 暂未用：`@ant-design/x-markdown`（后续可按需要引入；当前消息内容按纯文本渲染，tool 消息用 `pre`）
+
+#### A1：消息 Actions（copy / feedback）
+
+目标：在不引入 Markdown/渲染复杂度的前提下，让对话具备“产品感”的基础操作。
+
+当前实现：
+- AI 消息（assistant/ai）：提供 `Copy` + `Like/Dislike`（反馈状态仅前端内存态，刷新即丢失）
+- User/tool/system：提供 `Copy`
+- Tool 消息额外做了“控制台风格”呈现：等宽字体 + 轻背景 + 最大高度滚动
+
+代码位置：
+- `frontend/src/features/agui/components/xchat/XChatPanel.tsx`
+
+注意（Ant Design X 导出约束）：
+- `Actions` 组件目前未在 `@ant-design/x` 顶层导出（只导出类型）。
+- 因此实现里使用了深路径导入：`@ant-design/x/es/actions`。
+- 若未来 Ant Design X 提供顶层导出，可统一迁回：`import { Actions } from '@ant-design/x'`（以官方导出为准）。
+
+#### A2：自动滚动（near-bottom）+ Jump to latest
+
+动机：默认 autoScroll 会在用户上滑看历史时“强行把人拉回底部”，体验很差。
+
+当前实现：
+- 只有当用户滚动位置接近底部时，才在新消息到达时自动滚到底
+- 当用户不在底部且有新消息：展示 `Jump to latest` 按钮，用户自主跳回
+
+代码位置：
+- `frontend/src/features/agui/components/xchat/XChatPanel.tsx`
+
+#### A3：busy 时切换确认（thread/agent/tab）
+
+动机：Phase-1 语义是“断线不取消 run（server-side continue）”。如果用户在 busy 时切换 thread/agent/tab，
+需要明确告知：你是在“仅断开连接”还是“真正取消 run”。
+
+当前实现：
+- 在 busy 时尝试切换：弹窗提供 3 个动作
+  - `仅断开连接并切换`：调用 `stopStream()`，run 继续在服务端跑
+  - `取消 Run 并切换`：先调用 `requestCancel()` 再切换（若无 activeRunId 则禁用）
+  - `留在当前`
+
+代码位置：
+- `frontend/src/features/agui/components/xchat/confirmBusySwitch.tsx`
 
 文档：
 - https://x.ant.design/

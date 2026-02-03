@@ -1,10 +1,9 @@
 export default {
-  'menu.workbench': 'AI Workbench',
+  'menu.workbench': 'Workbench',
   'menu.agents': 'Agents',
-  'menu.sql-agent': 'SQL Agent',
-  'menu.sql-agent.chat': 'Chat',
-  'menu.sql-agent.workbench': 'Workbench',
   'menu.platform': 'Platform',
+  'menu.platform.workbench': 'Workbench',
+  'menu.platform.agents': 'Agents',
   'menu.platform.projects': 'Projects',
   'menu.platform.environments': 'Environments',
   'menu.platform.runs': 'Runs',

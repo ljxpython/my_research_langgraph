@@ -15,6 +15,7 @@
 - `docs/control-plane.md`：Control Plane 设计（通用测试平台：模块/数据模型/API/流程/演进）
 - `docs/execution-plane.md`：Execution Plane 设计（LangGraph 编排与部署：langgraph.json、dev vs docker）
 - `docs/execution-plane-roadmap.md`：Execution Plane 演进规划（Phase 1/2/3/4，长期扩展）
+- `docs/execution-plane-b2-fallback.md`：备用方案：B2（自建执行面复刻 LangGraph API）的成本与改造清单（仅备忘，不是当前路线）
 - `docs/api-contract.md`：Platform Gateway 对前端的 API 与事件流契约（AG-UI + SSE）
 - `docs/frontend-contract.md`：前端对接契约 v1（必选事件集 + 可选强交互事件 + HITL + CUSTOM 规范）
 - `docs/dev-workflow.md`：本地开发/联调工作流（LangGraph dev + FastAPI + UI）

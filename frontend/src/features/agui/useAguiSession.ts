@@ -114,6 +114,51 @@ export function useAguiSession(client: ControlPlaneClient, options?: UseAguiSess
         setFirstTokenReceived(true);
         return;
       }
+      case 'TEXT_MESSAGE_START': {
+        const messageId =
+          typeof (evt as any).messageId === 'string'
+            ? (evt as any).messageId
+            : typeof (evt as any).message_id === 'string'
+              ? (evt as any).message_id
+              : '';
+        if (!messageId) return;
+
+        const role = typeof (evt as any).role === 'string' ? (evt as any).role : 'assistant';
+
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === messageId)) return prev;
+          return [...prev, { id: messageId, role, content: '' }];
+        });
+        return;
+      }
+      case 'TEXT_MESSAGE_CONTENT': {
+        const messageId =
+          typeof (evt as any).messageId === 'string'
+            ? (evt as any).messageId
+            : typeof (evt as any).message_id === 'string'
+              ? (evt as any).message_id
+              : '';
+        const delta = typeof (evt as any).delta === 'string' ? (evt as any).delta : '';
+        if (!messageId || !delta) return;
+
+        setMessages((prev) => {
+          const idx = prev.findIndex((m) => m.id === messageId);
+          if (idx < 0) {
+            return [...prev, { id: messageId, role: 'assistant', content: delta }];
+          }
+
+          const next = prev.slice();
+          const cur = next[idx];
+          next[idx] = { ...cur, content: String(cur.content || '') + delta };
+          return next;
+        });
+        setFirstTokenReceived(true);
+        return;
+      }
+      case 'TEXT_MESSAGE_END': {
+        // UI doesn't need an explicit “ended” flag for now.
+        return;
+      }
       case 'CUSTOM': {
         const name = typeof (evt as any).name === 'string' ? (evt as any).name : '';
         if (name === 'interrupt') {

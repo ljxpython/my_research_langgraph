@@ -139,9 +139,11 @@ const ConnectPage: React.FC = () => {
 
                 message.success('Connected. Reloading…');
                 // 让整个应用在新的 baseURL/token 下重新初始化 request/baseURL。
-                const next = agentId ? `/workbench?agentId=${encodeURIComponent(agentId)}` : '/workbench';
-                window.location.href = next;
-                return true;
+                 const next = agentId
+                   ? `/platform/workbench?agentId=${encodeURIComponent(agentId)}`
+                   : '/platform/workbench';
+                 window.location.href = next;
+                 return true;
               } catch (e: any) {
                 setStatus('error');
                 setErrorText(e?.message || 'Connect failed');

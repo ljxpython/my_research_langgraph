@@ -28,10 +28,21 @@ export default [
     component: './connect',
   },
   {
+    path: '/welcome',
+    name: 'welcome',
+    icon: 'smile',
+    component: './Welcome',
+  },
+  // Backward-compatible aliases (menu lives under /platform/*)
+  {
     path: '/workbench',
-    name: 'workbench',
-    icon: 'dashboard',
-    component: './workbench',
+    hideInMenu: true,
+    redirect: '/platform/workbench',
+  },
+  {
+    path: '/agents',
+    hideInMenu: true,
+    redirect: '/platform/agents',
   },
   {
     path: '/flows/workbench',
@@ -40,37 +51,21 @@ export default [
     component: './flows/workbench',
   },
   {
-    path: '/agents',
-    name: 'agents',
-    icon: 'robot',
-    component: './agents',
-  },
-  {
-    path: '/sql-agent',
-    name: 'sql-agent',
-    icon: 'database',
-    routes: [
-      {
-        path: '/sql-agent',
-        redirect: '/sql-agent/chat',
-      },
-      {
-        path: '/sql-agent/chat',
-        name: 'chat',
-        component: './sql-agent/chat',
-      },
-      {
-        path: '/sql-agent/workbench',
-        name: 'workbench',
-        component: './sql-agent/workbench',
-      },
-    ],
-  },
-  {
     path: '/platform',
     name: 'platform',
     icon: 'appstore',
     routes: [
+      // 统一入口：对话工作台挂在“平台”下（路径保持 /workbench 以兼容已有链接）。
+      {
+        path: '/platform/workbench',
+        name: 'workbench',
+        component: './workbench',
+      },
+      {
+        path: '/platform/agents',
+        name: 'agents',
+        component: './agents',
+      },
       {
         path: '/platform',
         redirect: '/platform/projects',
@@ -109,37 +104,8 @@ export default [
     ],
   },
   {
-    path: '/welcome',
-    name: 'welcome',
-    icon: 'smile',
-    component: './Welcome',
-  },
-  {
-    path: '/admin',
-    name: 'admin',
-    icon: 'crown',
-    access: 'canAdmin',
-    routes: [
-      {
-        path: '/admin',
-        redirect: '/admin/sub-page',
-      },
-      {
-        path: '/admin/sub-page',
-        name: 'sub-page',
-        component: './Admin',
-      },
-    ],
-  },
-  {
-    name: 'list.table-list',
-    icon: 'table',
-    path: '/list',
-    component: './table-list',
-  },
-  {
     path: '/',
-    redirect: '/workbench',
+    redirect: '/welcome',
   },
   {
     component: '404',

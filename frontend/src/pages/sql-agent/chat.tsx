@@ -1,21 +1,22 @@
 import { PageContainer } from '@ant-design/pro-components';
-import { history, useLocation, useModel } from '@umijs/max';
+import { history, useLocation } from '@umijs/max';
 import {
   App,
   Button,
   Card,
-  Col,
-  Input,
-  Row,
+  Drawer,
+  Grid,
   Space,
-  Tag,
   Typography,
 } from 'antd';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
-import { ChatPane } from '@/features/agui/components/ChatPane';
-
-import { ThreadHistoryDrawer } from './components/thread-history';
+import { XChatPanel } from '@/features/agui/components/xchat/XChatPanel';
+import { XChatThreadList } from '@/features/agui/components/xchat/XChatThreadList';
+import { confirmBusySwitch } from '@/features/agui/components/xchat/confirmBusySwitch';
+import { useAguiThreads } from '@/features/agui/components/xchat/useAguiThreads';
+import { defaultControlPlaneClient } from '@/features/agui/defaultClient';
+import { useAguiSession } from '@/features/agui/useAguiSession';
 
 const SQL_AGENT_ID = 'sql_agent';
 
@@ -34,19 +35,56 @@ function setQueryParam(search: string, key: string, value?: string): string {
 }
 
 const SqlAgentChatPage: React.FC = () => {
-  const agui = useModel('agui');
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const location = useLocation();
+  const screens = Grid.useBreakpoint();
 
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [threadsDrawerOpen, setThreadsDrawerOpen] = useState(false);
 
-  const [restoreThreadId, setRestoreThreadId] = useState<string>('');
+  const session = useAguiSession(defaultControlPlaneClient, {
+    lockedAgentId: SQL_AGENT_ID,
+  });
+
+  const threads = useAguiThreads({ agentId: SQL_AGENT_ID, limit: 100, enabled: true });
+
+  const switchToThread = async (threadId: string) => {
+    const next = String(threadId || '').trim();
+    if (!next) return;
+    if (next === session.threadId) return;
+
+    if (session.busy) {
+      const choice = await confirmBusySwitch({
+        modal,
+        title: '切换 Thread？',
+        description:
+          '当前 run 仍在执行。你可以仅断开连接（run 会在服务端继续），或者先取消 run 再切换。',
+        canCancel: Boolean(session.threadId && session.activeRunId),
+      });
+
+      if (choice === 'stay') return;
+      if (choice === 'cancel') {
+        try {
+          await session.requestCancel();
+          message.success('Cancel requested');
+        } catch (e) {
+          console.log(e);
+          message.error('Cancel failed');
+          return;
+        }
+      }
+    }
+
+    session.stopStream();
+    history.push({
+      pathname: location.pathname,
+      search: setQueryParam(location.search, 'threadId', next),
+    });
+  };
+
 
   // Fixed agent for this page.
   useEffect(() => {
-    if (agui.selectedAgentId !== SQL_AGENT_ID) {
-      agui.setSelectedAgentId(SQL_AGENT_ID);
-    }
+    // lockedAgentId 已保证 agent 不会被误改写。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -54,11 +92,10 @@ const SqlAgentChatPage: React.FC = () => {
   useEffect(() => {
     const tid = getQueryParam(location.search, 'threadId');
     if (!tid) return;
-    if (tid === agui.threadId) return;
+    if (tid === session.threadId) return;
 
-    setRestoreThreadId(tid);
     // best-effort restore; errors are surfaced via toast
-    agui
+    session
       .loadSnapshot(tid)
       .then(() => {
         message.success('Snapshot loaded');
@@ -70,143 +107,79 @@ const SqlAgentChatPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
 
-  const runStatusTag = useMemo(() => {
-    if (agui.streamConnecting) return <Tag color="processing">Connecting</Tag>;
-    if (agui.busy && !agui.firstTokenReceived)
-      return <Tag color="processing">Waiting</Tag>;
-    if (agui.busy) return <Tag color="processing">Running</Tag>;
-    return <Tag color="default">Idle</Tag>;
-  }, [agui.busy, agui.firstTokenReceived, agui.streamConnecting]);
-
   const onCreateThread = async () => {
     try {
-      const tid = await agui.ensureThread();
+      const tid = await session.ensureThread();
       history.push({
         pathname: location.pathname,
         search: setQueryParam(location.search, 'threadId', tid),
       });
       message.success(`Thread created: ${tid}`);
+      threads.refresh();
     } catch (e) {
       console.log(e);
       message.error('Failed to create thread');
     }
   };
 
-  const onRestoreSnapshot = async (id: string) => {
-    const tid = id.trim();
-    if (!tid) return;
-    try {
-      await agui.loadSnapshot(tid);
-      history.push({
-        pathname: location.pathname,
-        search: setQueryParam(location.search, 'threadId', tid),
-      });
-      message.success('Snapshot loaded');
-    } catch (e) {
-      console.log(e);
-      message.error('Failed to load snapshot');
-    }
-  };
-
-  const onCancel = async () => {
-    try {
-      await agui.requestCancel();
-      message.success('Cancel requested');
-    } catch (e) {
-      console.log(e);
-      message.error('Cancel failed');
-    }
-  };
+  const drawerWidth = screens.lg ? 520 : '92vw';
 
   return (
     <PageContainer>
-      <Row gutter={[16, 16]}>
-        <Col xs={{ span: 24 }} lg={{ span: 7 }}>
-          <Card title="SQL Agent" size="small">
-            <Space direction="vertical" style={{ width: '100%' }} size={12}>
-              <div>
-                <Typography.Text type="secondary">agentId</Typography.Text>
-                <div style={{ marginTop: 6 }}>
-                  <Typography.Text code>{SQL_AGENT_ID}</Typography.Text>
-                </div>
+      <Card
+        title="Chat"
+        size="small"
+        extra={
+          <Space size={8} wrap>
+            <Button size="small" onClick={() => setThreadsDrawerOpen(true)}>
+              Threads
+            </Button>
+          </Space>
+        }
+      >
+        <XChatPanel title={undefined} session={session} />
+      </Card>
+
+      <Drawer
+        title="Threads"
+        open={threadsDrawerOpen}
+        onClose={() => setThreadsDrawerOpen(false)}
+        placement="left"
+        width={drawerWidth}
+        destroyOnClose
+      >
+        <Card title="SQL Agent" size="small">
+          <Space direction="vertical" style={{ width: '100%' }} size={12}>
+            <div>
+              <Typography.Text type="secondary">agentId</Typography.Text>
+              <div style={{ marginTop: 6 }}>
+                <Typography.Text code>{SQL_AGENT_ID}</Typography.Text>
               </div>
+            </div>
 
-              <Button type="primary" block onClick={onCreateThread}>
-                New Thread
-              </Button>
-
-              <Button block onClick={() => setHistoryOpen(true)}>
-                Thread History
-              </Button>
-
-              <div>
-                <Typography.Text type="secondary">
-                  Restore from threadId
-                </Typography.Text>
-                <Input.Search
-                  style={{ marginTop: 4 }}
-                  placeholder="th_..."
-                  value={restoreThreadId}
-                  onChange={(e) => setRestoreThreadId(e.target.value)}
-                  onSearch={onRestoreSnapshot}
-                  enterButton="Load"
-                />
-              </div>
-
-              <div>
-                <Typography.Text type="secondary">Current</Typography.Text>
-                <div style={{ marginTop: 6 }}>
-                  <Typography.Text code>{agui.threadId || '-'}</Typography.Text>
-                </div>
-              </div>
-
-              <div>
-                <Typography.Text type="secondary">Run</Typography.Text>
-                <div style={{ marginTop: 6 }}>
-                  <Space size={8} wrap>
-                    {runStatusTag}
-                    {agui.activeRunId && (
-                      <Typography.Text
-                        type="secondary"
-                        style={{ fontSize: 12 }}
-                      >
-                        run={agui.activeRunId}
-                      </Typography.Text>
-                    )}
-                  </Space>
-                </div>
-              </div>
-
-              <Button
-                danger
-                block
-                onClick={onCancel}
-                disabled={!agui.busy || !agui.threadId || !agui.activeRunId}
-              >
-                Cancel
-              </Button>
-            </Space>
-          </Card>
-        </Col>
-
-        <Col xs={{ span: 24 }} lg={{ span: 17 }}>
-          <ChatPane title="Chat" session={agui as any} />
-        </Col>
-      </Row>
-
-      <ThreadHistoryDrawer
-        open={historyOpen}
-        onClose={() => setHistoryOpen(false)}
-        agentId={SQL_AGENT_ID}
-        activeThreadId={agui.threadId}
-        onSelectThread={(tid) => {
-          setHistoryOpen(false);
-          history.push({
-            pathname: location.pathname,
-            search: setQueryParam(location.search, 'threadId', tid),
-          });
-        }}
-      />
+            <XChatThreadList
+              threads={threads.threads}
+              loading={threads.loading}
+              activeKey={session.threadId || undefined}
+              onRefresh={() => threads.refresh()}
+              onNewThread={async () => {
+                await onCreateThread();
+                setThreadsDrawerOpen(false);
+              }}
+              onRestoreThread={async (tid) => {
+                await switchToThread(tid);
+                setThreadsDrawerOpen(false);
+              }}
+              onActiveChange={(tid) => {
+                void (async () => {
+                  await switchToThread(tid);
+                  setThreadsDrawerOpen(false);
+                })();
+              }}
+            />
+          </Space>
+        </Card>
+      </Drawer>
     </PageContainer>
   );
 };

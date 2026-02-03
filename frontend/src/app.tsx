@@ -32,6 +32,11 @@ export async function getInitialState(): Promise<{
   fetchUserInfo?: () => Promise<API.CurrentUser | undefined>;
 }> {
   const fetchUserInfo = async () => {
+    // 未登录时不请求 /v1/me，避免启动时无意义的 401 噪音。
+    const token = getAccessToken();
+    if (!token) {
+      return undefined;
+    }
     try {
       return await getMe({ skipErrorHandler: true });
     } catch (_error) {
@@ -44,7 +49,8 @@ export async function getInitialState(): Promise<{
   // 如果不是登录页面，执行
   const { location } = history;
   if (
-    ![loginPath, '/user/register', '/user/register-result'].includes(
+    // /welcome 与 /connect 是公共入口，不应强依赖登录态。
+    ![loginPath, '/welcome', '/connect', '/user/register', '/user/register-result'].includes(
       location.pathname,
     )
   ) {
@@ -78,14 +84,14 @@ export const layout: RunTimeLayoutConfig = ({
         <AvatarDropdown>{avatarChildren}</AvatarDropdown>
       ),
     },
-    waterMarkProps: {
-      content: initialState?.currentUser?.name,
-    },
+    // 取消水印（chat 产品形态下不需要，也避免截图/录屏干扰）。
+    waterMarkProps: undefined,
     footerRender: () => <Footer />,
     onPageChange: () => {
       const { location } = history;
+      const publicPaths = [loginPath, '/welcome', '/connect', '/user/register', '/user/register-result'];
       // 如果没有登录，重定向到 login
-      if (!initialState?.currentUser && location.pathname !== loginPath) {
+      if (!initialState?.currentUser && !publicPaths.includes(location.pathname)) {
         history.push(loginPath);
       }
     },

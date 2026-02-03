@@ -69,6 +69,7 @@ def stream_run(
     command: Any,
     context: Any,
     metadata: Any,
+    stream_mode: Any = None,
     execution_target_id: str | None = None,
     on_run_created=None,
 ):
@@ -81,6 +82,14 @@ def stream_run(
         command=cast(Any, command),
         context=cast(Any, context),
         metadata=cast(Any, metadata),
+        # Phase-1 default was effectively stream_mode='values'.
+        # To support real-time text streaming we must request 'events' as well.
+        stream_mode=cast(
+            Any,
+            stream_mode
+            if stream_mode is not None
+            else ["events", "values", "updates"],
+        ),
         on_disconnect="continue",
         on_run_created=on_run_created,
     )

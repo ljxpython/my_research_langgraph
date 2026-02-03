@@ -1,17 +1,17 @@
 import { PageContainer, ProCard } from '@ant-design/pro-components';
+import { useLocation } from '@umijs/max';
 import { App, Button, Drawer, Grid, Input, Space, Tabs, Typography } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation } from '@umijs/max';
 
-import { ChatPane } from '@/features/agui/components/ChatPane';
 import { InspectorPane } from '@/features/agui/components/InspectorPane';
+import { confirmBusySwitch } from '@/features/agui/components/xchat/confirmBusySwitch';
+import { XChatPanel } from '@/features/agui/components/xchat/XChatPanel';
+import { XChatThreadList } from '@/features/agui/components/xchat/XChatThreadList';
+import { defaultControlPlaneClient } from '@/features/agui/defaultClient';
 import { useAguiSession } from '@/features/agui/useAguiSession';
 
-import { parseControlPlaneError, streamAgentRun } from '@/services/controlPlane/runs';
-import { cancelRun, createThread, getThreadSnapshot } from '@/services/controlPlane/threads';
 import { upsertFlowChatThread } from '@/services/controlPlane/flows';
-
-import type { ControlPlaneClient } from '@/features/agui/controlPlaneClient';
+import { parseControlPlaneError } from '@/services/controlPlane/runs';
 
 type FlowSectionConfig = {
   sectionKey: string;
@@ -38,28 +38,32 @@ function setQueryParam(search: string, key: string, value?: string): string {
   return s ? `?${s}` : '';
 }
 
-const defaultClient: ControlPlaneClient = {
-  createThread,
-  getThreadSnapshot,
-  cancelRun,
-  streamAgentRun,
-  parseError: parseControlPlaneError,
-};
-
 const FlowSectionTab: React.FC<{
   flowInstanceId: string;
   section: FlowSectionConfig;
   active: boolean;
-}> = ({ flowInstanceId, section, active }) => {
+  onMetaChange?: (sectionKey: string, meta: {
+    busy: boolean;
+    threadId: string;
+    activeRunId: string;
+  }) => void;
+  tabSwitchRequest?: { id: number; fromKey: string; toKey: string; action: 'cancel' } | null;
+  onTabSwitchRequestHandled?: (req: { id: number; ok: boolean }) => void;
+}> = ({ flowInstanceId, section, active, onMetaChange, tabSwitchRequest, onTabSwitchRequestHandled }) => {
   const { message } = App.useApp();
   const screens = Grid.useBreakpoint();
-  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [threadDrawerOpen, setThreadDrawerOpen] = useState(false);
+  const [inspectorDrawerOpen, setInspectorDrawerOpen] = useState(false);
 
-  const session = useAguiSession(defaultClient, { lockedAgentId: section.agentId });
+  const session = useAguiSession(defaultControlPlaneClient, {
+    lockedAgentId: section.agentId,
+  });
 
   const [bindingThreadId, setBindingThreadId] = useState<string>('');
   const [bindingLoading, setBindingLoading] = useState<boolean>(false);
   const [bindingError, setBindingError] = useState<string>('');
+
+  const handledSwitchReqIdRef = React.useRef<number>(0);
 
   useEffect(() => {
     // flowInstance 切换时，必须清空绑定与会话状态，避免把旧 thread 误用到新 flow。
@@ -80,7 +84,7 @@ const FlowSectionTab: React.FC<{
         { agentId: section.agentId, executionTargetId: 'local-dev' },
         { skipErrorHandler: true },
       );
-      const tid = (resp as any)?.threadId;
+      const tid = resp.threadId;
       if (typeof tid !== 'string' || !tid) {
         throw new Error('invalid threadId');
       }
@@ -112,71 +116,122 @@ const FlowSectionTab: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, flowInstanceId]);
 
-  const inspector = (
-    <InspectorPane messages={session.messages as any} state={session.state as any} />
-  );
+  useEffect(() => {
+    onMetaChange?.(section.sectionKey, {
+      busy: session.busy,
+      threadId: session.threadId,
+      activeRunId: session.activeRunId,
+    });
+  }, [onMetaChange, section.sectionKey, session.activeRunId, session.busy, session.threadId]);
+
+  useEffect(() => {
+    if (!tabSwitchRequest) return;
+    if (!active) return;
+    if (tabSwitchRequest.fromKey !== section.sectionKey) return;
+    if (handledSwitchReqIdRef.current === tabSwitchRequest.id) return;
+    handledSwitchReqIdRef.current = tabSwitchRequest.id;
+
+    (async () => {
+      try {
+        await session.requestCancel();
+        message.success('Cancel requested');
+      } catch (e) {
+        console.log(e);
+        message.error('Cancel failed');
+        onTabSwitchRequestHandled?.({ id: tabSwitchRequest.id, ok: false });
+        return;
+      } finally {
+        session.stopStream();
+      }
+      onTabSwitchRequestHandled?.({ id: tabSwitchRequest.id, ok: true });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, section.sectionKey, tabSwitchRequest]);
+
+  const inspector = <InspectorPane messages={session.messages} state={session.state} />;
+  const drawerWidth = screens.lg ? 520 : '92vw';
 
   return (
-    <ProCard split="vertical" bordered={false} gutter={16} style={{ minHeight: 520 }}>
-      <ProCard colSpan={{ xs: 24, lg: 16, xl: 17 }} bordered={false}>
-        <Space direction="vertical" style={{ width: '100%' }} size={12}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-            <Space size={8} wrap>
-              <Typography.Text type="secondary">flowInstanceId</Typography.Text>
-              <Typography.Text code>{flowInstanceId}</Typography.Text>
-              <Typography.Text type="secondary">section</Typography.Text>
-              <Typography.Text code>{section.sectionKey}</Typography.Text>
-              <Typography.Text type="secondary">agentId</Typography.Text>
-              <Typography.Text code>{section.agentId}</Typography.Text>
-              {bindingLoading ? (
-                <Typography.Text type="secondary">Binding…</Typography.Text>
-              ) : null}
-            </Space>
-            <Space size={8} wrap>
-              {!screens.lg ? (
-                <Button size="small" onClick={() => setInspectorOpen(true)}>
-                  Inspector
-                </Button>
-              ) : null}
-              <Button
-                size="small"
-                onClick={() => {
-                  message.success('Refreshing snapshot…');
-                  session.loadSnapshot(session.threadId);
-                }}
-                disabled={!session.threadId}
-                loading={bindingLoading || session.snapshotLoading}
-              >
-                Refresh
-              </Button>
-            </Space>
-          </div>
+    <ProCard bordered={false} gutter={16} style={{ minHeight: 520 }}>
+      <Space direction="vertical" style={{ width: '100%' }} size={12}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+          <Space size={8} wrap>
+            <Typography.Text type="secondary">flowInstanceId</Typography.Text>
+            <Typography.Text code>{flowInstanceId}</Typography.Text>
+            <Typography.Text type="secondary">section</Typography.Text>
+            <Typography.Text code>{section.sectionKey}</Typography.Text>
+            <Typography.Text type="secondary">agentId</Typography.Text>
+            <Typography.Text code>{section.agentId}</Typography.Text>
+            {bindingLoading ? <Typography.Text type="secondary">Binding…</Typography.Text> : null}
+          </Space>
 
-          {bindingError ? (
-            <Typography.Text type="danger">{bindingError}</Typography.Text>
-          ) : null}
+          <Space size={8} wrap>
+            <Button size="small" onClick={() => setThreadDrawerOpen(true)}>
+              Thread
+            </Button>
+            <Button size="small" onClick={() => setInspectorDrawerOpen(true)}>
+              Inspector
+            </Button>
+            <Button
+              size="small"
+              onClick={() => {
+                message.success('Refreshing snapshot…');
+                session.loadSnapshot(session.threadId);
+              }}
+              disabled={!session.threadId}
+              loading={bindingLoading || session.snapshotLoading}
+            >
+              Refresh
+            </Button>
+          </Space>
+        </div>
 
-          <ChatPane
-            title={section.title}
-            session={session as any}
-            // 对模块分区：必须先绑定映射得到 threadId，避免 sendUserMessage 自动创建“游离 thread”。
-            requireThread
-          />
-        </Space>
-      </ProCard>
+        {bindingError ? <Typography.Text type="danger">{bindingError}</Typography.Text> : null}
 
-      {screens.lg ? (
-        <ProCard colSpan={{ xs: 0, lg: 8, xl: 7 }} bordered={false}>
-          {inspector}
-        </ProCard>
-      ) : null}
+        <XChatPanel
+          title={section.title}
+          session={session}
+          // 对模块分区：必须先绑定映射得到 threadId，避免 sendUserMessage 自动创建“游离 thread”。
+          requireThread
+        />
+      </Space>
+
+      <Drawer
+        title="Thread"
+        open={threadDrawerOpen}
+        onClose={() => setThreadDrawerOpen(false)}
+        placement="left"
+        width={drawerWidth}
+        destroyOnClose
+      >
+        <XChatThreadList
+          title="Thread"
+          threads={
+            bindingThreadId
+              ? [
+                  {
+                    threadId: bindingThreadId,
+                    agentId: section.agentId,
+                    busy: session.busy,
+                    activeRunId: session.activeRunId || null,
+                    updatedAt: Date.now(),
+                  },
+                ]
+              : []
+          }
+          loading={bindingLoading}
+          activeKey={bindingThreadId || undefined}
+          disableNew
+          disableSelect
+        />
+      </Drawer>
 
       <Drawer
         title="Inspector"
-        open={inspectorOpen}
-        onClose={() => setInspectorOpen(false)}
+        open={inspectorDrawerOpen}
+        onClose={() => setInspectorDrawerOpen(false)}
         placement="right"
-        width="92vw"
+        width={drawerWidth}
         destroyOnClose
       >
         {inspector}
@@ -187,7 +242,7 @@ const FlowSectionTab: React.FC<{
 
 const FlowWorkbenchPage: React.FC = () => {
   const location = useLocation();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
 
   const initialFlowId = useMemo(
     () => getQueryParam(location.search, 'flowInstanceId') || '',
@@ -199,6 +254,14 @@ const FlowWorkbenchPage: React.FC = () => {
 
   const [sections] = useState<FlowSectionConfig[]>(DEFAULT_SECTIONS);
   const [activeKey, setActiveKey] = useState<string>(sections[0]?.sectionKey || 'analysis');
+
+  const [metaBySectionKey, setMetaBySectionKey] = useState<
+    Record<string, { busy: boolean; threadId: string; activeRunId: string }>
+  >({});
+  const [tabSwitchRequest, setTabSwitchRequest] = useState<
+    { id: number; fromKey: string; toKey: string; action: 'cancel' } | null
+  >(null);
+  const tabSwitchReqSeqRef = React.useRef(1);
 
   useEffect(() => {
     // URL 变化时同步输入框。
@@ -223,6 +286,20 @@ const FlowWorkbenchPage: React.FC = () => {
             flowInstanceId={flowInstanceId}
             section={s}
             active={activeKey === s.sectionKey}
+            onMetaChange={(k, meta) => {
+              setMetaBySectionKey((prev) => ({ ...prev, [k]: meta }));
+            }}
+            tabSwitchRequest={tabSwitchRequest}
+            onTabSwitchRequestHandled={(res) => {
+              if (!tabSwitchRequest) return;
+              if (res.id !== tabSwitchRequest.id) return;
+              if (!res.ok) {
+                setTabSwitchRequest(null);
+                return;
+              }
+              setActiveKey(tabSwitchRequest.toKey);
+              setTabSwitchRequest(null);
+            }}
           />
         ) : (
           <Typography.Text type="secondary">
@@ -238,7 +315,7 @@ const FlowWorkbenchPage: React.FC = () => {
       title="Flow Workbench"
       content={
         <Typography.Text type="secondary">
-          一个页面多��分区（Tabs），每个分区固定 agentId，并通过 Control Plane 映射绑定 thread。
+          一个页面多分区（Tabs），每个分区固定 agentId，并通过 Control Plane 映射绑定 thread。
         </Typography.Text>
       }
       extra={
@@ -279,7 +356,35 @@ const FlowWorkbenchPage: React.FC = () => {
           <Tabs
             size="large"
             activeKey={activeKey}
-            onChange={(k) => setActiveKey(k)}
+            onChange={async (k) => {
+              const next = String(k || '');
+              if (!next) return;
+              if (next === activeKey) return;
+
+              const meta = metaBySectionKey[activeKey];
+              if (meta?.busy) {
+                const choice = await confirmBusySwitch({
+                  modal,
+                  title: '切换分区？',
+                  description:
+                    '当前分区的 run 仍在执行。你可以仅断开连接并切换，或先取消 run 再切换。',
+                  canCancel: Boolean(meta.threadId && meta.activeRunId),
+                });
+
+                if (choice === 'stay') return;
+                if (choice === 'cancel') {
+                  setTabSwitchRequest({
+                    id: tabSwitchReqSeqRef.current++,
+                    fromKey: activeKey,
+                    toKey: next,
+                    action: 'cancel',
+                  });
+                  return;
+                }
+              }
+
+              setActiveKey(next);
+            }}
             items={tabs}
           />
         </Space>
