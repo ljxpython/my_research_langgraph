@@ -10,7 +10,9 @@
     "."
   ],
   "graphs": {
-    "sql_agent": "./src/ep/agents/sql_agent/graph.py:graph"
+    "sql_agent": "./src/ep/agents/sql_agent/graph.py:graph",
+    "deep_agent": "./src/ep/agents/sql_agent/graph.py:graph",
+    "learn_semantic_search": "./src/ep/agents/learn_semantic_search/graph.py:graph"
   },
   "env": ".env",
   "image_distro": "wolfi",

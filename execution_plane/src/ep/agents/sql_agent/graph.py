@@ -9,6 +9,7 @@ from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langchain_community.utilities import SQLDatabase
 
 from ep.shared.llm.factory import get_default_llm
+from ep.shared.mcp.registry import get_mcp_chart_tools
 
 
 def _repo_root() -> Path:
@@ -137,6 +138,7 @@ _db = SQLDatabase.from_uri(_db_uri)
 
 _toolkit = SQLDatabaseToolkit(db=_db, llm=_llm)
 _tools = _toolkit.get_tools()
+_tools = _tools + get_mcp_chart_tools()
 
 _top_k = int(os.getenv("SQL_AGENT_TOP_K", "5"))
 _system_prompt = _build_system_prompt(dialect=_db.dialect, top_k=_top_k)

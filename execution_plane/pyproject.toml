@@ -18,6 +18,8 @@ dependencies = [
   "langchain-openai>=0.3.0",
   "langchain-deepseek>=1.0.1",
   "deepagents>=0.3.9",
+  # MCP tools (used by examples/docker_single; reused in main EP)
+  "langchain-mcp-adapters>=0.1.9",
   "python-dotenv>=1.2.1",
 ]
 

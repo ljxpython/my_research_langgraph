@@ -6,6 +6,8 @@ from typing import Any
 from langchain_deepseek.chat_models import ChatDeepSeek
 from langchain_openai.chat_models import ChatOpenAI
 
+from ep.shared.llm.callbacks import CustomEventCallbackHandler
+
 
 def _set_profile_if_supported(model: Any, *, max_input_tokens: int) -> None:
     """Best-effort: some providers expose a profile dict."""
@@ -52,6 +54,7 @@ def get_default_llm() -> Any:
 def get_deepseek_llm() -> Any:
     model = ChatDeepSeek(model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"))
     _set_profile_if_supported(model, max_input_tokens=int(os.getenv("EP_MAX_INPUT_TOKENS", "50000")))
+    model.callbacks = [CustomEventCallbackHandler(enabled=True)]
     return model
 
 
@@ -66,6 +69,7 @@ def get_zhipu_llm() -> Any:
         base_url=os.getenv("ZHIPU_BASE_URL", "https://open.bigmodel.cn/api/paas/v4"),
     )
     _set_profile_if_supported(model, max_input_tokens=int(os.getenv("EP_MAX_INPUT_TOKENS", "50000")))
+    model.callbacks = [CustomEventCallbackHandler(enabled=True)]
     return model
 
 
@@ -79,4 +83,5 @@ def get_openai_llm() -> Any:
         base_url=os.getenv("OPENAI_BASE_URL") or None,
     )
     _set_profile_if_supported(model, max_input_tokens=int(os.getenv("EP_MAX_INPUT_TOKENS", "50000")))
+    model.callbacks = [CustomEventCallbackHandler(enabled=True)]
     return model
