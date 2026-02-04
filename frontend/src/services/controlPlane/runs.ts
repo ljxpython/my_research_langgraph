@@ -120,18 +120,24 @@ async function consumeSseJson(
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
 
-      // 按行解析（Control Plane 目前每条事件都在单独的 data: 行内）
-      let newlineIndex = buffer.indexOf('\n');
-      while (newlineIndex >= 0) {
-        const rawLine = buffer.slice(0, newlineIndex);
-        buffer = buffer.slice(newlineIndex + 1);
-        newlineIndex = buffer.indexOf('\n');
+      // Parse SSE frames by blank-line delimiter (\n\n), and support multi-line `data:`.
+      // Some proxies split/chunk output such that a single JSON payload is not guaranteed
+      // to arrive as one full line.
+      while (true) {
+        const frameEnd = buffer.indexOf('\n\n');
+        if (frameEnd < 0) break;
+        const rawFrame = buffer.slice(0, frameEnd);
+        buffer = buffer.slice(frameEnd + 2);
 
-        const line = rawLine.replace(/\r$/, '');
-        if (!line) continue;
+        const lines = rawFrame.split(/\n/).map((l) => l.replace(/\r$/, ''));
+        const dataLines: string[] = [];
+        for (const line of lines) {
+          if (!line) continue;
+          if (line.startsWith('data:')) dataLines.push(line.slice('data:'.length).trim());
+        }
+        if (!dataLines.length) continue;
 
-        if (!line.startsWith('data:')) continue;
-        const payload = line.slice('data:'.length).trim();
+        const payload = dataLines.join('\n').trim();
         if (!payload) continue;
 
         try {

@@ -1,0 +1,13 @@
+{
+  "type": "CUSTOM",
+  "name": "plan",
+  "value": {
+    "planId": "plan_01JDEMO000000000000000000",
+    "title": "生成测试报告",
+    "items": [
+      {"id": "t1", "title": "收集环境信息", "status": "completed"},
+      {"id": "t2", "title": "运行测试套件", "status": "in_progress"},
+      {"id": "t3", "title": "生成并上传报告", "status": "pending"}
+    ]
+  }
+}

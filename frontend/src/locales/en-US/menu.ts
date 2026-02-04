@@ -2,6 +2,8 @@ export default {
   'menu.flow-workbench': 'Flow Workbench',
   'menu.workbench': 'Workbench',
   'menu.agents': 'Agents',
+  'menu.deep-agent': 'Deep Agent',
+  'menu.deep-agent.workbench': 'Workbench',
   'menu.db-query': 'Smart Database',
   'menu.db-query.ai': 'AI Query',
   'menu.db-query.history': 'History',

@@ -88,6 +88,14 @@ ID 约定（Phase-1）：
 | `STEP_STARTED/FINISHED` | stepName | steps[] 追加/更新 | 用于节点轨迹展示（可选） |
 | `CUSTOM` | name/payload | if name==interrupt -> set interrupt | 弹出 InterruptModal，收集输入 |
 
+新增（Phase-2 规划 / 本次目标）：
+
+| AG-UI 事件 type | 关键字段 | store 更新 | UI 行为/说明 |
+|---|---|---|---|
+| `CUSTOM` | name=`plan` | `agui.plan = value` | 展示 ToDo/计划面板（可折叠）；与 run 绑定展示 |
+| `CUSTOM` | name=`deep_agents` | `agui.deepAgents = value` | 展示子代理列表与状态 |
+| `CUSTOM` | name=`mcp` | `agui.mcpEvents[]` append | 展示 MCP 调用记录；若含 `resourceUri`，提供“查看渲染内容”动作 |
+
 interrupt/resume（已敲定）：
 - 收到 `CUSTOM name=interrupt`：打开弹窗，按 payload.schema 渲染表单
 - 用户提交：发起新的 run（同 thread_id），并在 `forwarded_props.command.resume` 写入 resume payload

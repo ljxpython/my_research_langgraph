@@ -6,7 +6,9 @@
   fe.tsc \
   cp.smoke \
   dev.check dev.check-loop \
+  dev.checkup \
   dev.exec dev.exec-stop dev.cp dev.cp-stop dev.frontend dev.agui-ui dev.agui-ui-stop \
+  dev.exec-bg dev.exec-bg-stop dev.cp-bg dev.cp-bg-stop dev.frontend-bg dev.frontend-bg-stop dev.frontend-stop \
   ep.prod.build ep.prod.up ep.prod.down ep.prod.logs ep.prod.health \
   dev.platform dev.platform-stop dev.platform-bg dev.platform-bg-stop \
   test-apps1.up test-apps1.down test-apps1.clean test-apps1.test.api test-apps1.test.ui \
@@ -71,6 +73,9 @@ UV_ACTIVE ?= 0
 
 RUN_DIR ?= .run
 
+# 默认打开：在 CP 启动时额外 seed deep_agent / learn_*，用于“完整体检”联调。
+BOOTSTRAP_EXTRA_AGENTS ?= 1
+
 # ==================== Helpers ====================
 
 ifeq ($(UV_ACTIVE),1)
@@ -125,6 +130,13 @@ help:
 	@echo "  dev.platform-stop  - Stop tmux session (if used)";
 	@echo "  dev.platform-bg    - Start exec+cp+frontend in background (pidfiles)";
 	@echo "  dev.platform-bg-stop - Stop background dev (pidfiles)";
+	@echo "  dev.checkup        - Run full-checkup smoke (sql_agent + deep_agent + learn_semantic_search)";
+	@echo "  dev.cp-bg          - Run Control Plane in background (pidfile/log)";
+	@echo "  dev.cp-bg-stop     - Stop background Control Plane (pidfile/port-safe)";
+	@echo "  dev.exec-bg        - Run Execution Plane in background (pidfile/log)";
+	@echo "  dev.exec-bg-stop   - Stop background Execution Plane (pidfile/port-safe)";
+	@echo "  dev.frontend-bg    - Run Frontend in background (pidfile/log)";
+	@echo "  dev.frontend-bg-stop - Stop background Frontend (pidfile/port-safe)";
 	@echo "  test-apps1.up       - Start SUT1 (FastAPI+React+Playwright)";
 	@echo "  test-apps1.down     - Stop SUT1 (keep volumes)";
 	@echo "  test-apps1.clean    - Stop SUT1 (remove volumes)";
@@ -465,6 +477,7 @@ dev.frontend:
 		exit 1; \
 	fi
 	@echo "FE: http://$(FE_HOST):$(FE_PORT) (connect: http://$(FE_HOST):$(FE_PORT)/connect)";
+	@echo "NOTE: this target runs a long-lived dev server; stop with: make dev.frontend-stop";
 	PORT=$(FE_PORT) npm --prefix frontend run dev
 
 
@@ -568,48 +581,8 @@ cp.smoke:
 	BOOTSTRAP_ADMIN_PASSWORD=test \
 	PYTHONPATH=. \
 	uv run $(UV_ACTIVE_FLAG) --package control-plane --directory control_plane \
-	  python - <<'PY'
-	import time
-	from fastapi.testclient import TestClient
-	from gateway.main import create_app
-	
-	app = create_app()
-	with TestClient(app) as client:
-	  r = client.post('/v1/auth/login', json={'username': 'test', 'password': 'test'})
-	  assert r.status_code == 200, r.text
-	  token = r.json()['access_token']
-	  headers = {'Authorization': f'Bearer {token}', 'X-Request-Id': 'req_make_smoke'}
-	
-	  r = client.post('/v1/projects', json={'name': 'Smoke Project', 'description': 'smoke'}, headers=headers)
-	  assert r.status_code == 201, r.text
-	  proj = r.json()['project_id']
-	
-	  r = client.post(f'/v1/projects/{proj}/environments', json={'name': 'Smoke Env', 'type': 'generic', 'config_json': {}}, headers=headers)
-	  assert r.status_code == 201, r.text
-	  env = r.json()['environment_id']
-	
-	  r = client.post(
-	    f'/v1/projects/{proj}/runs',
-	    json={'client_run_id': 'crun_smoke_make', 'environment_id': env, 'runner': 'dummy', 'params': {}},
-	    headers=headers,
-	  )
-	  assert r.status_code in (200, 201), r.text
-	  run_id = r.json()['run_id']
-	
-	  for _ in range(30):
-	    r = client.get(f'/v1/runs/{run_id}', headers=headers)
-	    assert r.status_code == 200, r.text
-	    if r.json().get('status') in ('succeeded', 'failed', 'canceled'):
-	      break
-	    time.sleep(0.5)
-	
-	  r = client.get(f'/v1/runs/{run_id}/events', headers=headers)
-	  assert r.status_code == 200, r.text
-	  body = r.json()
-	  assert 'events' in body and 'nextCursor' in body and 'hasMore' in body
-	
-	print('CP_SMOKE_OK')
-	PY
+	  $(PY) -c "from fastapi.testclient import TestClient; from gateway.main import create_app; import time; app=create_app(); c=TestClient(app); r=c.post('/v1/auth/login', json={'username':'test','password':'test'}); assert r.status_code==200, r.text; token=r.json()['access_token']; h={'Authorization':'Bearer '+token,'X-Request-Id':'req_make_smoke'}; r=c.post('/v1/projects', json={'name':'Smoke Project','description':'smoke'}, headers=h); assert r.status_code==201, r.text; proj=r.json()['project_id']; r=c.post('/v1/projects/%s/environments'%proj, json={'name':'Smoke Env','type':'generic','config_json': {}}, headers=h); assert r.status_code==201, r.text; env_id=r.json()['environment_id']; r=c.post('/v1/projects/%s/runs'%proj, json={'client_run_id':'crun_smoke_make','environment_id': env_id,'runner':'dummy','params': {}}, headers=h); assert r.status_code in (200,201), r.text; run_id=r.json()['run_id']; \
+  [ (lambda rr: (rr.status_code==200) or (_ for _ in ()).throw(AssertionError(rr.text)) )(c.get('/v1/runs/%s'%run_id, headers=h)) or (c.get('/v1/runs/%s'%run_id, headers=h).json().get('status') in ('succeeded','failed','canceled')) or time.sleep(0.5) for _ in range(30) ]; r=c.get('/v1/runs/%s/events'%run_id, headers=h); assert r.status_code==200, r.text; body=r.json(); assert 'events' in body and 'nextCursor' in body and 'hasMore' in body; print('CP_SMOKE_OK')"
 
 
 # ==================== Dev - one-shot platform ====================
@@ -648,25 +621,86 @@ dev.platform-stop:
 	@tmux kill-session -t $(TMUX_SESSION) 2>/dev/null || true
 
 
-# Background mode: store pid/log under .run/
+# Background mode: store logs under .run/ (no pidfiles)
 dev.platform-bg:
 	@mkdir -p $(RUN_DIR)
 	@echo "Starting exec/cp/frontend in background (logs: $(RUN_DIR)/*.log)";
-	@nohup make dev.exec > $(RUN_DIR)/exec.log 2>&1 & echo $$! > $(RUN_DIR)/exec.pid
-	@nohup make dev.cp > $(RUN_DIR)/cp.log 2>&1 & echo $$! > $(RUN_DIR)/cp.pid
-	@nohup make dev.frontend > $(RUN_DIR)/frontend.log 2>&1 & echo $$! > $(RUN_DIR)/frontend.pid
-	@echo "PIDs: exec=$$(cat $(RUN_DIR)/exec.pid) cp=$$(cat $(RUN_DIR)/cp.pid) frontend=$$(cat $(RUN_DIR)/frontend.pid)"
+	@nohup make dev.exec > $(RUN_DIR)/exec.log 2>&1 &
+	@nohup env BOOTSTRAP_EXTRA_AGENTS=$(BOOTSTRAP_EXTRA_AGENTS) make dev.cp > $(RUN_DIR)/cp.log 2>&1 &
+	@nohup make dev.frontend > $(RUN_DIR)/frontend.log 2>&1 &
+	@echo "OK: started (stop with: make dev.platform-bg-stop)"
+
+
+# ==================== Background single-process helpers ====================
+
+dev.exec-bg:
+	@mkdir -p $(RUN_DIR)
+	@echo "Starting exec in background (log: $(RUN_DIR)/exec.log)";
+	@nohup make dev.exec > $(RUN_DIR)/exec.log 2>&1 &
+
+dev.exec-bg-stop:
+	@$(MAKE) dev.exec-stop FORCE=1
+
+dev.cp-bg:
+	@mkdir -p $(RUN_DIR)
+	@echo "Starting cp in background (log: $(RUN_DIR)/cp.log, BOOTSTRAP_EXTRA_AGENTS=$(BOOTSTRAP_EXTRA_AGENTS))";
+	@nohup env BOOTSTRAP_EXTRA_AGENTS=$(BOOTSTRAP_EXTRA_AGENTS) make dev.cp > $(RUN_DIR)/cp.log 2>&1 &
+
+dev.cp-bg-stop:
+	@$(MAKE) dev.cp-stop FORCE=1
+
+dev.frontend-bg:
+	@mkdir -p $(RUN_DIR)
+	@echo "Starting frontend in background (log: $(RUN_DIR)/frontend.log)";
+	@nohup make dev.frontend > $(RUN_DIR)/frontend.log 2>&1 &
+
+dev.frontend-bg-stop:
+	@$(MAKE) dev.frontend-stop FORCE=1 || true
+
+
+dev.frontend-stop:
+	@echo "Stopping Frontend on port $(FE_PORT)...";
+	@if ! command -v lsof >/dev/null 2>&1; then \
+		echo "lsof not found; cannot reliably stop by port."; \
+		exit 1; \
+	fi
+	@pid=$$(lsof -nP -iTCP:$(FE_PORT) -sTCP:LISTEN -t 2>/dev/null | head -n 1); \
+	if [ -z "$$pid" ]; then \
+		echo "No process is listening on port $(FE_PORT)."; \
+		exit 0; \
+	fi; \
+	cmd=$$(ps -p $$pid -o command= 2>/dev/null || true); \
+	echo "Found pid=$$pid"; \
+	echo "cmd=$$cmd"; \
+	case "$$cmd" in \
+		*"node"*|*"npm"*|*"pnpm"*|*"yarn"*) \
+			echo "Sending SIGTERM to pid=$$pid"; \
+			kill $$pid 2>/dev/null || true; \
+			;; \
+		*) \
+			echo "Refusing to kill: process does not look like a frontend dev server."; \
+			echo "If you really want to kill whatever is on port $(FE_PORT), run: FORCE=1 make dev.frontend-stop"; \
+			if [ "$$FORCE" = "1" ]; then \
+				echo "FORCE=1: Sending SIGTERM to pid=$$pid"; \
+				kill $$pid 2>/dev/null || true; \
+			fi; \
+			;; \
+	esac
+
+
+# ==================== Full checkup ====================
+
+dev.checkup:
+	@echo "Running full-checkup smoke (requires CP+EP up) ...";
+	@$(MAKE) cp.smoke || true
+	@$(MAKE) dev.cp-stop FORCE=1 >/dev/null 2>&1 || true
+	@$(MAKE) dev.cp-bg
+	@sleep 3
+	@uv run --project control_plane python control_plane/scripts/e2e_smoke.py --agent-id sql_agent
+	@uv run --project control_plane python control_plane/scripts/e2e_smoke.py --agent-id deep_agent
+	@uv run --project control_plane python control_plane/scripts/e2e_smoke.py --agent-id learn_semantic_search
 
 dev.platform-bg-stop:
-	@set -e; \
-	for name in exec cp frontend; do \
-		pidfile="$(RUN_DIR)/$$name.pid"; \
-		if [ -f "$$pidfile" ]; then \
-			pid=$$(cat "$$pidfile"); \
-			if kill -0 "$$pid" 2>/dev/null; then \
-				echo "killing $$name ($$pid)"; \
-				kill "$$pid" 2>/dev/null || true; \
-			fi; \
-			rm -f "$$pidfile"; \
-		fi; \
-	done
+	@$(MAKE) dev.exec-stop FORCE=1 || true
+	@$(MAKE) dev.cp-stop FORCE=1 || true
+	@$(MAKE) dev.frontend-stop FORCE=1 || true

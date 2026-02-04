@@ -1,0 +1,11 @@
+{
+  "type": "CUSTOM",
+  "name": "reasoning_summary",
+  "value": {
+    "summary": "我会先拆解任务步骤，然后按步骤执行并持续更新计划状态。",
+    "highlights": [
+      "优先调用可信工具获取事实",
+      "对高风险工具操作触发审批"
+    ]
+  }
+}

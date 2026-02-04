@@ -15,6 +15,9 @@ import {
 import React, { useEffect, useMemo, useState } from 'react';
 
 import { InspectorPane } from '@/features/agui/components/InspectorPane';
+import { McpPane } from '@/features/agui/components/McpPane';
+import { PlanPane } from '@/features/agui/components/PlanPane';
+import { ReasoningPane } from '@/features/agui/components/ReasoningPane';
 import { confirmBusySwitch } from '@/features/agui/components/xchat/confirmBusySwitch';
 import { XChatPanel } from '@/features/agui/components/xchat/XChatPanel';
 import { defaultControlPlaneClient } from '@/features/agui/defaultClient';
@@ -251,6 +254,21 @@ const SqlAgentWorkbenchPage: React.FC = () => {
               key: 'inspector',
               label: 'Inspector',
               children: <InspectorPane messages={session.messages} state={session.state} />,
+            },
+            {
+              key: 'plan',
+              label: 'Plan',
+              children: <PlanPane plan={(session as any).plan} />,
+            },
+            {
+              key: 'mcp',
+              label: 'MCP',
+              children: <McpPane events={((session as any).mcpEvents as any[]) || []} />,
+            },
+            {
+              key: 'reasoning',
+              label: 'Reasoning',
+              children: <ReasoningPane value={(session as any).reasoningSummary} />,
             },
             {
               key: 'sql',
