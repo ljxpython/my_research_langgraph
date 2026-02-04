@@ -63,19 +63,33 @@ Dev defaults: username=test, password=test.
         )
         db.add(system_user)
 
-    # Seed a minimal agent registry entry so the UI can boot.
-    agent_id = os.getenv("BOOTSTRAP_AGENT_ID", "sql_agent")
-    agent = db.execute(select(Agent).where(Agent.agent_id == agent_id)).scalar_one_or_none()
-    if agent is None:
-        agent = Agent(
-            agent_id=agent_id,
-            tenant_id=tenant.id,
-            display_name=os.getenv("BOOTSTRAP_AGENT_DISPLAY_NAME", "SQL Agent"),
-            description=os.getenv("BOOTSTRAP_AGENT_DESCRIPTION", ""),
-            status=os.getenv("BOOTSTRAP_AGENT_STATUS", "active"),
-            execution_target_id=os.getenv("BOOTSTRAP_AGENT_EXECUTION_TARGET_ID", "local-dev"),
-            graph_id=os.getenv("BOOTSTRAP_AGENT_GRAPH_ID", "sql_agent"),
-            assistant_id=os.getenv("BOOTSTRAP_AGENT_ASSISTANT_ID", None),
-            config_json={},
+    # Seed minimal agent registry entries so the UI can boot.
+    #
+    # Phase-1 behavior kept: sql_agent is always present.
+    # Phase-2 behavior: optionally seed additional dev agents if enabled.
+    base_target = os.getenv("BOOTSTRAP_AGENT_EXECUTION_TARGET_ID", "local-dev")
+
+    def _ensure_agent(*, agent_id: str, display_name: str, graph_id: str) -> None:
+        existing = db.execute(select(Agent).where(Agent.agent_id == agent_id)).scalar_one_or_none()
+        if existing is not None:
+            return
+        db.add(
+            Agent(
+                agent_id=agent_id,
+                tenant_id=tenant.id,
+                display_name=display_name,
+                description="",
+                status="active",
+                execution_target_id=base_target,
+                graph_id=graph_id,
+                assistant_id=None,
+                config_json={},
+            )
         )
-        db.add(agent)
+
+    _ensure_agent(agent_id=os.getenv("BOOTSTRAP_AGENT_ID", "sql_agent"), display_name="SQL Agent", graph_id="sql_agent")
+
+    # DEV: enable extra agents for full-checkup workbench.
+    if os.getenv("BOOTSTRAP_EXTRA_AGENTS", "").strip().lower() in {"1", "true", "yes", "on"}:
+        _ensure_agent(agent_id="deep_agent", display_name="Deep Agent", graph_id="deep_agent")
+        _ensure_agent(agent_id="learn_semantic_search", display_name="Learn: Semantic Search", graph_id="learn_semantic_search")

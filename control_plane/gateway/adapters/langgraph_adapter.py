@@ -103,10 +103,14 @@ def ensure_thread_exists(
     """
 
     client = get_client(execution_target_id=execution_target_id)
+    # IMPORTANT: thread_id must be UUID. Do NOT pass graph_id here.
+    # Newer LangGraph API allows running a thread with assistant_id (graph name)
+    # without binding the thread to a specific graph at creation time.
+    # Passing graph_id can lead to "Graph 'X' is not valid" for some graph shapes
+    # (notably DeepAgents wrappers), which breaks snapshot/state reads.
     client.threads.create(
         thread_id=thread_id,
         metadata=metadata or {},
-        graph_id=graph_id,
         if_exists="do_nothing",
     )
 

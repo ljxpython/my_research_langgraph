@@ -48,6 +48,50 @@ def _extract_langgraph_event_payload(data: Any) -> dict[str, Any] | None:
     return data
 
 
+def _maybe_emit_custom_event(ev: dict[str, Any]) -> dict[str, Any] | None:
+    """Map selected LangGraph custom events into AG-UI CUSTOM.
+
+    We keep this conservative: only events that match our frozen contract
+    (`shared/contracts/agui/custom-events.md`). Unknown events are ignored.
+    """
+
+    try:
+        ev_type = ev.get("event")
+        if not isinstance(ev_type, str):
+            return None
+
+        # Examples/ag-ui emits custom LangGraph events under these names.
+        # We normalize them to AG-UI CUSTOM name=interrupt.
+        if ev_type in {"on_interrupt", "onInterrupt", "on_interrupt_event"}:
+            payload = ev.get("data")
+            if not isinstance(payload, dict):
+                payload = {"value": payload}
+            return {"type": "CUSTOM", "name": "interrupt", "value": payload}
+
+        # Allow platform-side plan emission via LangGraph custom events.
+        if ev_type in {"plan", "on_plan", "onPlan"}:
+            payload = ev.get("data")
+            if not isinstance(payload, dict):
+                payload = {"value": payload}
+            return {"type": "CUSTOM", "name": "plan", "value": payload}
+
+        if ev_type in {"mcp", "on_mcp", "onMcp"}:
+            payload = ev.get("data")
+            if not isinstance(payload, dict):
+                payload = {"value": payload}
+            return {"type": "CUSTOM", "name": "mcp", "value": payload}
+
+        if ev_type in {"reasoning_summary", "on_reasoning_summary", "onReasoningSummary"}:
+            payload = ev.get("data")
+            if not isinstance(payload, dict):
+                payload = {"value": payload}
+            return {"type": "CUSTOM", "name": "reasoning_summary", "value": payload}
+
+    except Exception:
+        return None
+    return None
+
+
 def _extract_text_delta_from_chat_model_stream(ev: dict[str, Any]) -> tuple[str | None, str] | None:
     """Extract (message_id, delta) from an on_chat_model_stream event.
 
@@ -86,6 +130,66 @@ def _extract_text_delta_from_chat_model_stream(ev: dict[str, Any]) -> tuple[str 
     if not delta:
         return None
     return message_id, delta
+
+
+def _maybe_emit_tool_event(ev: dict[str, Any], *, thread_id: str, run_id: str) -> dict[str, Any] | None:
+    """Best-effort mapping of tool lifecycle events to AG-UI TOOL_CALL_*.
+
+    We only translate a conservative subset to avoid depending on provider-specific
+    schemas. Unknown shapes are ignored.
+    """
+
+    ev_type = ev.get("event")
+    if not isinstance(ev_type, str):
+        return None
+
+    if ev_type not in {"on_tool_start", "on_tool_end", "on_tool_error"}:
+        return None
+
+    data = ev.get("data")
+    if not isinstance(data, dict):
+        return None
+
+    # LangChain callback payloads usually include these keys.
+    tool_name = data.get("name") if isinstance(data.get("name"), str) else None
+    tool_input = data.get("input")
+
+    # Most providers don't expose tool_call_id in callbacks; generate a stable-ish one.
+    # If upstream provides `run_id` (tool-run id) we can reuse it.
+    call_id = None
+    rid = data.get("run_id")
+    if isinstance(rid, str) and rid:
+        call_id = rid
+    else:
+        call_id = make_id("call")
+
+    if ev_type == "on_tool_start":
+        return {
+            "type": "TOOL_CALL_START",
+            "threadId": thread_id,
+            "runId": run_id,
+            "toolCallId": call_id,
+            "tool": tool_name or "tool",
+            "args": tool_input,
+        }
+
+    if ev_type == "on_tool_end":
+        return {
+            "type": "TOOL_CALL_END",
+            "threadId": thread_id,
+            "runId": run_id,
+            "toolCallId": call_id,
+            "output": data.get("output"),
+        }
+
+    # on_tool_error
+    return {
+        "type": "TOOL_CALL_ERROR",
+        "threadId": thread_id,
+        "runId": run_id,
+        "toolCallId": call_id,
+        "error": str(data.get("error")),
+    }
 
 
 @router.post("/agents/{agent_id}:run")
@@ -245,6 +349,11 @@ def run_agent(
                 if isinstance(c, dict):
                     command = c
 
+            # DeepAgents HITL requires a `thread_id` in the configurable config.
+            # Without it, Command(resume=...) won't resume the right checkpoint.
+            if isinstance(command, dict) and "resume" in command:
+                ep_input = {**ep_input, "config": {"configurable": {"thread_id": input_data.thread_id}}}
+
             for part in stream_run(
                 thread_id=input_data.thread_id,
                 graph_id=graph_id,
@@ -329,6 +438,17 @@ def run_agent(
                                 }
                             )
                             current_text_message_id = None
+                        continue
+
+                    tool_ev = _maybe_emit_tool_event(ev, thread_id=input_data.thread_id, run_id=cp_run_id)
+                    if tool_ev is not None:
+                        yield _encode_sse(tool_ev)
+                        continue
+
+                    # Custom events: interrupts, plan/todo, MCP rich content, etc.
+                    custom = _maybe_emit_custom_event(ev)
+                    if custom is not None:
+                        yield _encode_sse(custom)
                         continue
 
                     # Ignore other callback events in Phase-1.

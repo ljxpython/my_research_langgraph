@@ -72,7 +72,10 @@ def main(argv: list[str] | None = None) -> int:
         if not isinstance(agents, list) or not agents:
             _die("agents list empty")
 
-        agent_id = args.agent_id or agents[0].get("agentId")
+        # Prefer sql_agent for smoke stability.
+        agent_id = args.agent_id or os.getenv("CP_AGENT_ID") or "sql_agent"
+        if not any(isinstance(a, dict) and a.get("agentId") == agent_id for a in agents):
+            agent_id = agents[0].get("agentId")
         if not isinstance(agent_id, str) or not agent_id:
             _die("could not determine agentId")
 
@@ -101,7 +104,9 @@ def main(argv: list[str] | None = None) -> int:
 
         with client.stream("POST", f"/v1/agents/{agent_id}:run", headers=headers, json=run_body) as resp:
             if resp.status_code != 200:
-                _die(f"run failed: {resp.status_code} {resp.text}")
+                # Streaming responses don't allow resp.text without reading.
+                body = resp.read().decode("utf-8", errors="replace")
+                _die(f"run failed: {resp.status_code} {body}")
 
             # Read a few events (don’t hang forever in smoke).
             start = time.time()
