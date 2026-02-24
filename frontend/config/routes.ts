@@ -33,6 +33,22 @@ export default [
     icon: 'smile',
     component: './Welcome',
   },
+  {
+    path: '/deep-agent',
+    name: 'deep-agent',
+    icon: 'rocket',
+    routes: [
+      {
+        path: '/deep-agent/workbench',
+        name: 'workbench',
+        component: './deep-agent/workbench',
+      },
+      {
+        path: '/deep-agent',
+        redirect: '/deep-agent/workbench',
+      },
+    ],
+  },
   // ==================== 智能数据库 ====================
   {
     path: '/db-query',

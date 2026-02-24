@@ -60,6 +60,13 @@ export function useAguiSession(client: ControlPlaneClient, options?: UseAguiSess
 
   const [interrupt, setInterrupt] = React.useState<InterruptPayload | undefined>(undefined);
 
+  // Phase-2: optional rich surfaces (plan/todo, MCP rendering events)
+  const [plan, setPlan] = React.useState<Record<string, any> | undefined>(undefined);
+  const [mcpEvents, setMcpEvents] = React.useState<Record<string, any>[]>([]);
+  const [reasoningSummary, setReasoningSummary] = React.useState<Record<string, any> | undefined>(
+    undefined,
+  );
+
   const abortRef = React.useRef<AbortController | null>(null);
   const inflightRef = React.useRef<boolean>(false);
 
@@ -168,6 +175,29 @@ export function useAguiSession(client: ControlPlaneClient, options?: UseAguiSess
           } else {
             setInterrupt({});
           }
+          return;
+        }
+
+        // Control Plane emits CUSTOM with {name, value}. Keep compat with payload-only events.
+        const value = (evt as any).value;
+        if (name === 'plan') {
+          if (value && typeof value === 'object') setPlan(value as Record<string, any>);
+          else setPlan({ value });
+          return;
+        }
+        if (name === 'reasoning_summary') {
+          if (value && typeof value === 'object') setReasoningSummary(value as Record<string, any>);
+          else setReasoningSummary({ value });
+          return;
+        }
+        if (name === 'mcp') {
+          setMcpEvents((prev) => {
+            const next = prev.slice();
+            next.push((value && typeof value === 'object' ? value : { value }) as Record<string, any>);
+            if (next.length > 200) next.splice(0, next.length - 200);
+            return next;
+          });
+          return;
         }
         return;
       }
@@ -194,6 +224,9 @@ export function useAguiSession(client: ControlPlaneClient, options?: UseAguiSess
     setMessages([]);
     setState(emptyAguiState());
     setInterrupt(undefined);
+    setPlan(undefined);
+    setMcpEvents([]);
+    setReasoningSummary(undefined);
   }, [lockedAgentId, stopStream]);
 
   const loadSnapshot = React.useCallback(
@@ -484,6 +517,9 @@ export function useAguiSession(client: ControlPlaneClient, options?: UseAguiSess
       messages,
       state,
       interrupt,
+      plan,
+      mcpEvents,
+      reasoningSummary,
 
       // actions
       setSelectedAgentId,
@@ -509,6 +545,9 @@ export function useAguiSession(client: ControlPlaneClient, options?: UseAguiSess
       ensureThread,
       firstTokenReceived,
       interrupt,
+      plan,
+      mcpEvents,
+      reasoningSummary,
       loadSnapshot,
       messages,
       requestCancel,

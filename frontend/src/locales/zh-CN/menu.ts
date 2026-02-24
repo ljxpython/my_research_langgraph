@@ -2,6 +2,8 @@ export default {
   'menu.flow-workbench': '流程工作台',
   'menu.workbench': '工作台',
   'menu.agents': 'Agents',
+  'menu.deep-agent': 'Deep Agent',
+  'menu.deep-agent.workbench': '工作台',
   'menu.db-query': '智能数据库',
   'menu.db-query.ai': 'AI 查询',
   'menu.db-query.history': '历史对话',

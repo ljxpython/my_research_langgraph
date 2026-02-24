@@ -25,6 +25,9 @@
 - `docs/agui-workbench.md`：AG-UI Workbench 正式版设计（模块化 Tabs + 通用入口 + 映射与会话内核）
 - `docs/agui-demo-ui.md`：通用 AG-UI Demo UI 方案（对标 agent-chat-ui / chat.langchain.com）
 - `docs/integration-guardrails.md`：前后端对接保障（shared 的作用与不足、契约测试/Mock/CI 约束）
+- `docs/mcp-and-rich-ui.md`：MCP 与 Rich UI（表格/图标/Markdown）落地指南
+- `docs/deep-agent-production.md`：Deep Agent 生产化落地（EP 执行 / CP 翻译 / 前端展示）
+- `docs/runbook-full-checkup.md`：Full Checkup 验收跑通手册（CP/EP/FE 端到端）
 - `docs/security-and-secrets.md`：鉴权、密钥、审计与多租户隔离约定
 - `docs/infra.md`：Infra（本地/测试环境：docker run 部署 Redis + Postgres 双 DB）
 - `docs/reuse-auth-db.md`：鉴权与 DB 管理可复用方案（Phase-1 简化 login -> Phase-2 OIDC）

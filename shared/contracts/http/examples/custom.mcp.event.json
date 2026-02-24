@@ -1,0 +1,16 @@
+{
+  "type": "CUSTOM",
+  "name": "mcp",
+  "value": {
+    "serverId": "mcp_chart_server",
+    "toolName": "render_table",
+    "toolCallId": "call_01JDEMO000000000000000000",
+    "phase": "result",
+    "content": {
+      "mimeType": "text/html+mcp",
+      "resourceUri": "mcp://mcp_chart_server/ui/table/abc123",
+      "title": "Top Failures",
+      "fallbackMarkdown": "|case|status|\n|---|---|\n|test_login|failed|\n|test_signup|passed|"
+    }
+  }
+}
