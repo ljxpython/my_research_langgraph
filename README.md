@@ -1,5 +1,12 @@
 # 通用测试管理模板（Control Plane + Frontend）
 
+## 仓库状态说明
+
+- `my_research_langgraph/` 这套通用测试管理平台模板、双 Plane 架构和配套前后端原型能力，已经整合进 [ai-agent-test-platform](https://github.com/ljxpython/ai-agent-test-platform)。
+- 当前仓库保留为历史研究、架构演进和实现参考，不再作为主线仓库持续维护。
+- 如果你现在要继续推进企业级平台开发、测试管理、AI Agent 平台集成或生产化落地，请直接以 `ai-agent-test-platform` 为准。
+- 下方内容主要用于回看这套历史方案的定位、目录语义与本地运行方式。
+
 这个仓库的定位：提供一个“可复用的测试开发平台骨架（Template）”。
 
 - 主干能力：项目/环境/运行/产物/审计等通用平台模块（更像“中台”，而不是某个单点 demo）。

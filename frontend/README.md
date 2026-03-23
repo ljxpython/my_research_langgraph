@@ -1,5 +1,11 @@
 Language: 🇺🇸 | [🇨🇳](./README.zh-CN.md) | [🇷🇺](./README.ru-RU.md) | [🇹🇷](./README.tr-TR.md) | [🇯🇵](./README.ja-JP.md) | [🇫🇷](./README.fr-FR.md) | [🇵🇹](./README.pt-BR.md) | [🇸🇦](./README.ar-DZ.md) | [🇪🇸](./README.es-ES.md)
 
+## 仓库状态说明
+
+- `frontend/` 中这套平台前端原型与管理台骨架能力，已经整合进 [ai-agent-test-platform](https://github.com/ljxpython/ai-agent-test-platform)。
+- 当前目录下这份前端实现主要保留为历史原型与脚手架参考，不再作为主线模块持续维护。
+- 下方大段内容是原始 Ant Design Pro 模板说明，保留它只是为了回看脚手架来源；如果你要看当前主线平台前端，请直接以 `ai-agent-test-platform` 为准。
+
 <h1 align="center">Ant Design Pro</h1>
 
 <div align="center">

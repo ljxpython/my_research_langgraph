@@ -1,5 +1,11 @@
 # Execution Plane（执行面）
 
+## 仓库状态说明
+
+- `execution_plane/` 这部分执行面、LangGraph Agent Server 接入和 SQL Agent 验证方案，已经整合进 [ai-agent-test-platform](https://github.com/ljxpython/ai-agent-test-platform)。
+- 当前目录下这份实现主要保留为历史方案参考，不再作为主线模块持续维护。
+- 如果要继续推进执行面开发、运行时治理或正式环境集成，请直接以 `ai-agent-test-platform` 为准。
+
 定位：执行面只负责“跑图 + streaming + 持久化”（LangGraph Agent Server）。
 
 - 不做：鉴权/租户/RBAC、审计、对外协议收口（这些属于 Control Plane）。
